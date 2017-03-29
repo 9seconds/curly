@@ -109,7 +109,6 @@ TOKENIZER_REGEXP = make_regexp(
 
 
 def tokenize(text):
-    print(TOKENIZER_REGEXP.pattern)
     return tuple(tokenize_iter(text))
 
 
