@@ -101,6 +101,8 @@ TOKENIZER_REGEXP = utils.make_regexp(
 
 def tokenize_iter(text):
     previous_end = 0
+    if isinstance(text, bytes):
+        text = text.decode("utf-8")
 
     for matcher in TOKENIZER_REGEXP.finditer(text):
         if matcher.start(0) != previous_end:

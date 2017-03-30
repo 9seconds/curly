@@ -6,10 +6,7 @@ import textwrap
 
 
 def make_regexp(pattern):
-    pattern = textwrap.dedent(pattern)
-    pattern = re.compile(pattern, re.UNICODE | re.VERBOSE)
-
-    return pattern
+    return re.compile(textwrap.dedent(pattern), re.VERBOSE)
 
 
 def resolve_variable(varname, context):

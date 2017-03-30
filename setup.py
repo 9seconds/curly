@@ -24,5 +24,10 @@ setuptools.setup(
     packages=[
         "curly"
     ],
+    entry_points={
+        "console_scripts": [
+            "curly = curly.cli:main"
+        ]
+    },
     install_requires=[]
 )

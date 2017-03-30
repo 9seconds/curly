@@ -25,10 +25,11 @@ class Node:
 
     def process(self, context):
         self.validate_context(context)
-        return self.emit(context)
+        return "".join(self.emit(context))
 
     def emit(self, context):
-        return "".join(str(node.emit(context)) for node in self.nodes)
+        for node in self.nodes:
+            yield from node.emit(context)
 
     def validate_context(self, context):
         pass
@@ -54,7 +55,7 @@ class LiteralNode(Node):
         self.ready = True
 
     def emit(self, context):
-        return self.TEXT_UNESCAPE.sub(r"\1", self.token.contents["text"])
+        yield self.TEXT_UNESCAPE.sub(r"\1", self.token.contents["text"])
 
 
 class PrintNode(VarNode):
@@ -66,7 +67,7 @@ class PrintNode(VarNode):
         self.ready = True
 
     def emit(self, context):
-        return utils.resolve_variable(self.var, context)
+        yield str(utils.resolve_variable(self.var, context))
 
 
 class IfNode(VarNode):
@@ -75,8 +76,9 @@ class IfNode(VarNode):
 
     def emit(self, context):
         if utils.resolve_variable(self.var, context):
-            return super().emit(context)
-        return ""
+            yield from super().emit(context)
+        else:
+            yield ""
 
 
 class LoopNode(VarNode):
@@ -86,24 +88,21 @@ class LoopNode(VarNode):
     def emit(self, context):
         value = utils.resolve_variable(self.var, context)
 
+        context_copy = context.copy()
         if isinstance(value, dict):
-            iterable = self.emit_dict(value, context)
+            yield from self.emit_dict(value, context_copy)
         else:
-            iterable = self.emit_iterable(value, context)
-
-        return "".join(iterable)
+            yield from self.emit_iterable(value, context_copy)
 
     def emit_dict(self, value, context):
         for key, val in sorted(value.items()):
-            new_context = context.copy()
-            new_context["item"] = {"key": key, "value": val}
-            yield super().emit(new_context)
+            context["item"] = {"key": key, "value": val}
+            yield from super().emit(context)
 
     def emit_iterable(self, value, context):
         for val in value:
-            new_context = context.copy()
-            new_context["item"] = val
-            yield super().emit(new_context)
+            context["item"] = val
+            yield from super().emit(context)
 
 
 def parse(tokens):
