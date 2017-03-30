@@ -11,7 +11,7 @@ matrix:
     - python: "3.5"
       env: TOXENV=static
     - python: "3.5"
-      env: TOXENV=static
+      env: TOXENV=metrics
 
 install: pip install tox
 
