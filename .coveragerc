@@ -1,6 +1,7 @@
 [run]
 branch = True
 omit =
+  curly/cli.py
   tests/*
   */site-packages/*
 source =
