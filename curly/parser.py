@@ -48,14 +48,13 @@ class VarNode(Node):
 class LiteralNode(Node):
 
     NAME = "literal"
-    TEXT_UNESCAPE = utils.make_regexp(r"\\(.)")
 
     def __init__(self, token):
         super().__init__(token)
         self.ready = True
 
     def emit(self, context):
-        yield self.TEXT_UNESCAPE.sub(r"\1", self.token.contents["text"])
+        yield self.token.contents["text"]
 
 
 class PrintNode(VarNode):

@@ -80,9 +80,11 @@ class LoopEndToken(Token):
 
 class LiteralToken(Token):
 
+    TEXT_UNESCAPE = utils.make_regexp(r"\\(.)")
+
     def __init__(self, text):
         self.raw_string = text
-        self.contents = {"text": text}
+        self.contents = {"text": self.TEXT_UNESCAPE.sub(r"\1", text)}
 
 
 TOKENS = collections.OrderedDict()
