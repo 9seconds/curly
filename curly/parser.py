@@ -9,6 +9,8 @@ class Node:
 
     __slots__ = "token", "nodes", "ready"
 
+    NAME = "node"
+
     def __init__(self, token):
         self.token = token
         self.nodes = []
@@ -44,6 +46,8 @@ class VarNode(Node):
 
 class LiteralNode(Node):
 
+    NAME = "literal"
+
     def __init__(self, token):
         super().__init__(token)
         self.ready = True
@@ -53,6 +57,8 @@ class LiteralNode(Node):
 
 
 class PrintNode(VarNode):
+
+    NAME = "print tag"
 
     def __init__(self, token):
         super().__init__(token)
@@ -64,6 +70,8 @@ class PrintNode(VarNode):
 
 class IfNode(VarNode):
 
+    NAME = "if"
+
     def emit(self, context):
         if curly.utils.resolve_variable(self.var, context):
             return super().emit(context)
@@ -71,6 +79,8 @@ class IfNode(VarNode):
 
 
 class LoopNode(VarNode):
+
+    NAME = "loop"
 
     def emit(self, context):
         value = curly.utils.resolve_variable(self.var, context)
@@ -125,13 +135,20 @@ def rewind_stack(stack, *, search_for):
 
     while stack:
         node = stack.pop()
-        if isinstance(node, search_for) and not node.ready:
-            node.ready = True
-            node.nodes = nodes
-            stack.append(node)
-            return stack
+        if not node.ready:
+            break
         nodes.append(node)
+    else:
+        raise ValueError(
+            "Cannot find matching {0.NAME} start statement".format(search_for))
 
-    if search_for is IfNode:
-        raise ValueError("Incorrect closing if statement")
-    raise ValueError("Incorrect closing loop statement")
+    if not isinstance(node, search_for):
+        raise ValueError(
+            ("Expected to find matching {0.NAME} statement, "
+             "got {1.NAME} instead").format(search_for, node))
+
+    node.ready = True
+    node.nodes = nodes[::-1]
+    stack.append(node)
+
+    return stack
