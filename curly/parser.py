@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
 
-import curly.lexer
-import curly.utils
+from curly import lexer
+from curly import utils
 
 
 class Node:
@@ -41,19 +41,20 @@ class VarNode(Node):
         return self.token.contents["var"]
 
     def validate_context(self, context):
-        curly.utils.resolve_variable(self.var, context)
+        utils.resolve_variable(self.var, context)
 
 
 class LiteralNode(Node):
 
     NAME = "literal"
+    TEXT_UNESCAPE = utils.make_regexp(r"\\(.)")
 
     def __init__(self, token):
         super().__init__(token)
         self.ready = True
 
     def emit(self, context):
-        return self.token.contents["text"]
+        return self.TEXT_UNESCAPE.sub(r"\1", self.token.contents["text"])
 
 
 class PrintNode(VarNode):
@@ -65,7 +66,7 @@ class PrintNode(VarNode):
         self.ready = True
 
     def emit(self, context):
-        return curly.utils.resolve_variable(self.var, context)
+        return utils.resolve_variable(self.var, context)
 
 
 class IfNode(VarNode):
@@ -73,7 +74,7 @@ class IfNode(VarNode):
     NAME = "if"
 
     def emit(self, context):
-        if curly.utils.resolve_variable(self.var, context):
+        if utils.resolve_variable(self.var, context):
             return super().emit(context)
         return ""
 
@@ -83,7 +84,7 @@ class LoopNode(VarNode):
     NAME = "loop"
 
     def emit(self, context):
-        value = curly.utils.resolve_variable(self.var, context)
+        value = utils.resolve_variable(self.var, context)
 
         if isinstance(value, dict):
             iterable = self.emit_dict(value, context)
@@ -109,20 +110,26 @@ def parse(tokens):
     stack = []
 
     for token in tokens:
-        if isinstance(token, curly.lexer.LiteralToken):
+        if isinstance(token, lexer.LiteralToken):
             stack.append(LiteralNode(token))
-        elif isinstance(token, curly.lexer.PrintToken):
+        elif isinstance(token, lexer.PrintToken):
             stack.append(PrintNode(token))
-        elif isinstance(token, curly.lexer.IfStartToken):
+        elif isinstance(token, lexer.IfStartToken):
             stack.append(IfNode(token))
-        elif isinstance(token, curly.lexer.LoopStartToken):
+        elif isinstance(token, lexer.LoopStartToken):
             stack.append(LoopNode(token))
-        elif isinstance(token, curly.lexer.IfEndToken):
+        elif isinstance(token, lexer.IfEndToken):
             stack = rewind_stack(stack, search_for=IfNode)
-        elif isinstance(token, curly.lexer.LoopEndToken):
+        elif isinstance(token, lexer.LoopEndToken):
             stack = rewind_stack(stack, search_for=LoopNode)
         else:
             raise ValueError("Unknown token {0!r}".format(token))
+
+    for node in stack:
+        if not node.ready:
+            raise ValueError(
+                "Cannot find enclosement statement for {0.NAME}".format(
+                    node))
 
     root = Node(None)
     root.nodes = stack

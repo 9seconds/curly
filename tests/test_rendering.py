@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 
 
+import itertools
+
 import pytest
 
 from curly import template
@@ -43,3 +45,30 @@ def test_for_loop_if():
     tpl = "H {% items %}{?item?}={{item}}={?}{%} H"
     assert template.render(tpl, {"items": [True, False, 1, 0]}) == \
         "H =True==1= H"
+
+
+@pytest.mark.parametrize("tagname", "?%")
+def test_cannot_find_end_statement(tagname):
+    tpl = "H {" + tagname + " var " + tagname + "} H"
+    with pytest.raises(ValueError):
+        template.render(tpl, {"var": 1})
+
+
+@pytest.mark.parametrize("tagname", "?%")
+def test_cannot_find_start_statement(tagname):
+    tpl = "H {%s} H" % tagname
+    with pytest.raises(ValueError):
+        template.render(tpl, {"var": 1})
+
+
+@pytest.mark.parametrize("one, another", list(itertools.permutations("?%", 2)))
+def test_mixed_statements(one, another):
+    tpl = "H {" + one + " var " + one + ("}{%s} {" % another) + \
+        "} {%s} H" % one
+    with pytest.raises(ValueError):
+        template.render(tpl, {"var": 1})
+
+
+def test_literal_replacement():
+    tpl = r"\{\{"
+    assert template.render(tpl, {}) == "{{"

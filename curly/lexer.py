@@ -3,14 +3,14 @@
 
 import collections
 
-import curly.utils
+from curly import utils
 
 
 class Token:
 
     __slots__ = "contents", "raw_string"
 
-    REGEXP = curly.utils.make_regexp(".+")
+    REGEXP = utils.make_regexp(".+")
 
     def __init__(self, raw_string):
         matcher = self.REGEXP.match(raw_string)
@@ -41,7 +41,7 @@ class VarTokenMixin:
 
 
 class PrintToken(VarTokenMixin, Token):
-    REGEXP = curly.utils.make_regexp(
+    REGEXP = utils.make_regexp(
         r"""
         \{\{                          # opening {{
         ([a-zA-Z0-9_\. \t\n\r\f\v]+)  # group 1, 'var' in {{ var }}
@@ -51,7 +51,7 @@ class PrintToken(VarTokenMixin, Token):
 
 
 class IfStartToken(VarTokenMixin, Token):
-    REGEXP = curly.utils.make_regexp(
+    REGEXP = utils.make_regexp(
         r"""
         \{\?                          # opening {?
         ([a-zA-Z0-9_\. \t\n\r\f\v]+)  # group 1, 'var' in {? var ?}
@@ -61,11 +61,11 @@ class IfStartToken(VarTokenMixin, Token):
 
 
 class IfEndToken(Token):
-    REGEXP = curly.utils.make_regexp(r"\{\?\}")
+    REGEXP = utils.make_regexp(r"\{\?\}")
 
 
 class LoopStartToken(VarTokenMixin, Token):
-    REGEXP = curly.utils.make_regexp(
+    REGEXP = utils.make_regexp(
         r"""
         \{\%                          # opening {%
         ([a-zA-Z0-9_\. \t\n\r\f\v]+)  # group 1, 'var' in {% var %}
@@ -75,7 +75,7 @@ class LoopStartToken(VarTokenMixin, Token):
 
 
 class LoopEndToken(Token):
-    REGEXP = curly.utils.make_regexp(r"\{%\}")
+    REGEXP = utils.make_regexp(r"\{%\}")
 
 
 class LiteralToken(Token):
@@ -92,7 +92,7 @@ TOKENS["if_end"] = IfEndToken
 TOKENS["loop_start"] = LoopStartToken
 TOKENS["loop_end"] = LoopEndToken
 
-TOKENIZER_REGEXP = curly.utils.make_regexp(
+TOKENIZER_REGEXP = utils.make_regexp(
     "|".join(
         "(?P<{0}>{1})".format(k, v.REGEXP.pattern) for k, v in TOKENS.items()
      )

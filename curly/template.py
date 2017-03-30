@@ -1,15 +1,14 @@
 # -*- coding: utf-8 -*-
 
 
-import curly.lexer
-import curly.parser
+from curly import lexer
+from curly import parser
 
 
 class Template:
 
     def __init__(self, text):
-        tokens = curly.lexer.tokenize_iter(text)
-        self.node = curly.parser.parse(tokens)
+        self.node = parser.parse(lexer.tokenize_iter(text))
 
     def render(self, context):
         return self.node.process(context)
