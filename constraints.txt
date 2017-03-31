@@ -16,3 +16,4 @@ pytest-profiling==1.2.6
 radon==1.5.0
 sphinx==1.5.3
 xenon==0.5.0
+sphinx-nameko-theme==0.0.3
