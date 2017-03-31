@@ -14,5 +14,5 @@ pytest==3.0.7
 pytest-cov==2.4.0
 pytest-profiling==1.2.6
 radon==1.5.0
-sphinx=1.5.3
+sphinx==1.5.3
 xenon==0.5.0
