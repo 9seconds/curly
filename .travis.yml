@@ -12,6 +12,8 @@ matrix:
       env: TOXENV=static
     - python: "3.5"
       env: TOXENV=metrics
+    - python: "3.5"
+      env: TOXENV=docs
 
 install: pip install tox coverage
 
