@@ -26,45 +26,45 @@ def test_print_tag():
 
 
 def test_if_tag():
-    tpl = "Hello {? qq?}QQ{?} {?pp?}PP{?} Hello"
+    tpl = "Hello {% if qq %}QQ{%/if%} {%if   pp  %}PP{% /if%} Hello"
     assert render(tpl, {"qq": False, "pp": True}) == "Hello  PP Hello"
 
 
 def test_for_loop_list():
-    tpl = "H {% items %}={{ item }}{%} H"
+    tpl = "H {% loop items %}={{ item }}{% /loop %} H"
     assert render(tpl, {"items": [1, 2, 3]}) == "H =1=2=3 H"
 
 
 def test_for_loop_dict():
-    tpl = "H {% items%}{{ item.key }}={{ item.value }},{%} H"
+    tpl = "H {% loop items%}{{ item.key }}={{ item.value }},{% /loop %} H"
     assert render(tpl, {"items": {"b": 2, "a": 1}}) == \
         "H a=1,b=2, H"
 
 
 def test_for_loop_if():
-    tpl = "H {% items %}{?item?}={{item}}={?}{%} H"
+    tpl = "H {% loop items %}{% if item %}={{item}}={% /if %}{% /loop %} H"
     assert render(tpl, {"items": [True, False, 1, 0]}) == \
         "H =True==1= H"
 
 
-@pytest.mark.parametrize("tagname", "?%")
+@pytest.mark.parametrize("tagname", ["loop", "if", "if-not"])
 def test_cannot_find_end_statement(tagname):
-    tpl = "H {" + tagname + " var " + tagname + "} H"
+    tpl = "H {%% %s condition %%}" % tagname
     with pytest.raises(ValueError):
         render(tpl, {"var": 1})
 
 
-@pytest.mark.parametrize("tagname", "?%")
+@pytest.mark.parametrize("tagname", ["loop", "if", "if-not"])
 def test_cannot_find_start_statement(tagname):
-    tpl = "H {%s} H" % tagname
+    tpl = "H {%% /%s %%} H" % tagname
     with pytest.raises(ValueError):
         render(tpl, {"var": 1})
 
 
-@pytest.mark.parametrize("one, another", list(itertools.permutations("?%", 2)))
+@pytest.mark.parametrize(
+    "one, another", list(itertools.permutations(["loop", "if", "if-not"], 2)))
 def test_mixed_statements(one, another):
-    tpl = "H {" + one + " var " + one + ("}{%s} {" % another) + \
-        "} {%s} H" % one
+    tpl = "H {%% %s %%} {%% / %s %%}" % (one, another)
     with pytest.raises(ValueError):
         render(tpl, {"var": 1})
 
