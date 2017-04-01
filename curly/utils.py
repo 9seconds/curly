@@ -17,6 +17,8 @@ def make_expression(text):
     text = text or ""
     text = text.strip()
     text = shlex.split(text)
+    if not text:
+        text = [""]
 
     return text
 

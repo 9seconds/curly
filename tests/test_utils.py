@@ -20,6 +20,17 @@ def test_make_regexp(expression, search, value):
     assert regexp.match(search).group(0) == value
 
 
+@pytest.mark.parametrize("expression, result", (
+    ("hello", ["hello"]),
+    ("hello world", ["hello", "world"]),
+    ("hello 'this world'", ["hello", "this world"]),
+    (None, [""])
+))
+def test_make_expression(expression, result):
+    exp = utils.make_expression(expression)
+    assert exp == result
+
+
 def test_resolve_variable():
     ctx = {"a": [{"b": 1}, {"c": {"d": "e"}}]}
     assert utils.resolve_variable("a.1.c.d", ctx) == "e"
