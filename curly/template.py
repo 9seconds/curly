@@ -7,12 +7,11 @@ from curly import parser
 
 class Template:
 
-    def __init__(self, text):
-        self.node = parser.parse(lexer.tokenize_iter(text))
+    __slots__ = "env", "node"
+
+    def __init__(self, env, text):
+        self.node = parser.parse(lexer.tokenize(text))
+        self.env = env
 
     def render(self, context):
-        return self.node.process(context)
-
-
-def render(text, context):
-    return Template(text).render(context)
+        return self.node.process(self.env, context)

@@ -2,11 +2,23 @@
 
 
 import re
+import shlex
 import textwrap
 
 
 def make_regexp(pattern):
-    return re.compile(textwrap.dedent(pattern), re.VERBOSE)
+    pattern = textwrap.dedent(pattern)
+    pattern = re.compile(pattern, re.MULTILINE | re.VERBOSE | re.DOTALL)
+
+    return pattern
+
+
+def make_expression(text):
+    text = text or ""
+    text = text.strip()
+    text = shlex.split(text)
+
+    return text
 
 
 def resolve_variable(varname, context):

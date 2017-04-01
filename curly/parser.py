@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 
 
+import subprocess
+
 from curly import lexer
 from curly import utils
 
@@ -17,91 +19,75 @@ class Node:
         self.ready = False
 
     def __str__(self):
-        return ("<{0.__class__.__name__}(token={0.token!r}, "
+        return ("<{0.__class__.__name__}(ready={0.ready}, token={0.token!r}, "
                 "nodes={0.nodes!r})>").format(self)
 
     def __repr__(self):
         return str(self)
 
-    def process(self, context):
-        self.validate_context(context)
-        return "".join(self.emit(context))
-
-    def emit(self, context):
-        for node in self.nodes:
-            yield from node.emit(context)
-
-    def validate_context(self, context):
-        pass
-
-
-class VarNode(Node):
-
     @property
-    def var(self):
-        return self.token.contents["var"]
+    def raw_string(self):
+        return self.token.raw_string
 
-    def validate_context(self, context):
-        utils.resolve_variable(self.var, context)
+    def process(self, env, context):
+        return "".join(self.emit(env, context))
+
+    def emit(self, env, context):
+        for node in self.nodes:
+            yield from node.emit(env, context)
+
+    def validate_context(self, env, context):
+        pass
 
 
 class LiteralNode(Node):
 
-    NAME = "literal"
+    def __init__(self, token):
+        super().__init__(token)
+        self.ready = True
+
+    @property
+    def text(self):
+        return self.token.contents["text"]
+
+    def emit(self, env, context):
+        yield self.text
+
+
+class PrintNode(Node):
 
     def __init__(self, token):
         super().__init__(token)
         self.ready = True
 
-    def emit(self, context):
-        yield self.token.contents["text"]
+    @property
+    def expression(self):
+        return self.token.contents["expression"]
+
+    def emit(self, env, context):
+        value = subprocess.list2cmdline(self.expression)
+        yield str(utils.resolve_variable(value, context))
 
 
-class PrintNode(VarNode):
+class BlockTagNode(Node):
 
-    NAME = "print tag"
+    @property
+    def expression(self):
+        return self.token.contents["expression"]
 
-    def __init__(self, token):
-        super().__init__(token)
-        self.ready = True
+    @property
+    def function(self):
+        return self.token.contents["function"]
 
-    def emit(self, context):
-        yield str(utils.resolve_variable(self.var, context))
+    def emit(self, env, context):
+        function = env.get(self.function)
 
+        if not callable(function):
+            raise ValueError(
+                "Cannot find callable function {0} in environment".format(
+                    function))
 
-class IfNode(VarNode):
-
-    NAME = "if"
-
-    def emit(self, context):
-        if utils.resolve_variable(self.var, context):
-            yield from super().emit(context)
-        else:
-            yield ""
-
-
-class LoopNode(VarNode):
-
-    NAME = "loop"
-
-    def emit(self, context):
-        value = utils.resolve_variable(self.var, context)
-
-        context_copy = context.copy()
-        if isinstance(value, dict):
-            yield from self.emit_dict(value, context_copy)
-        else:
-            yield from self.emit_iterable(value, context_copy)
-
-    def emit_dict(self, value, context):
-        for key, val in sorted(value.items()):
-            context["item"] = {"key": key, "value": val}
-            yield from super().emit(context)
-
-    def emit_iterable(self, value, context):
-        for val in value:
-            context["item"] = val
-            yield from super().emit(context)
+        yield from function(self, env, context)
 
 
 def parse(tokens):
@@ -112,21 +98,17 @@ def parse(tokens):
             stack.append(LiteralNode(token))
         elif isinstance(token, lexer.PrintToken):
             stack.append(PrintNode(token))
-        elif isinstance(token, lexer.IfStartToken):
-            stack.append(IfNode(token))
-        elif isinstance(token, lexer.LoopStartToken):
-            stack.append(LoopNode(token))
-        elif isinstance(token, lexer.IfEndToken):
-            stack = rewind_stack(stack, search_for=IfNode)
-        elif isinstance(token, lexer.LoopEndToken):
-            stack = rewind_stack(stack, search_for=LoopNode)
+        elif isinstance(token, lexer.StartBlockToken):
+            stack.append(BlockTagNode(token))
+        elif isinstance(token, lexer.EndBlockToken):
+            stack = rewind_stack(stack, token)
         else:
-            raise ValueError("Unknown token {0!r}".format(token))
+            raise ValueError("Unknown token {0}".format(token))
 
     for node in stack:
         if not node.ready:
             raise ValueError(
-                "Cannot find enclosement statement for {0.NAME}".format(
+                "Cannot find enclosement statement for {0.function}".format(
                     node))
 
     root = Node(None)
@@ -135,7 +117,7 @@ def parse(tokens):
     return root
 
 
-def rewind_stack(stack, *, search_for):
+def rewind_stack(stack, end_token):
     nodes = []
 
     while stack:
@@ -145,12 +127,14 @@ def rewind_stack(stack, *, search_for):
         nodes.append(node)
     else:
         raise ValueError(
-            "Cannot find matching {0.NAME} start statement".format(search_for))
+            "Cannot find matching {0} start statement".format(
+                end_token.contents["function"]))
 
-    if not isinstance(node, search_for):
+    if node.function != end_token.contents["function"]:
         raise ValueError(
-            ("Expected to find matching {0.NAME} statement, "
-             "got {1.NAME} instead").format(search_for, node))
+            "Expected to find {0} start statement, "
+            "got {1} instead".format(node.function,
+                                     end_token.contents["function"]))
 
     node.ready = True
     node.nodes = nodes[::-1]

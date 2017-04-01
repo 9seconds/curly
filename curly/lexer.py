@@ -1,16 +1,20 @@
 # -*- coding: utf-8 -*-
 
 
-import collections
+import functools
 
 from curly import utils
+
+
+REGEXP_FUNCTION = r"[a-zA-Z0-9_-]+"
+REGEXP_EXPRESSION = r"(?:\\.|[^\{\}])+"
 
 
 class Token:
 
     __slots__ = "contents", "raw_string"
 
-    REGEXP = utils.make_regexp(".+")
+    REGEXP = None
 
     def __init__(self, raw_string):
         matcher = self.REGEXP.match(raw_string)
@@ -33,49 +37,44 @@ class Token:
         return str(self)
 
 
-class VarTokenMixin:
-
-    @staticmethod
-    def extract_contents(matcher):
-        return {"var": matcher.group(1).strip()}
-
-
-class PrintToken(VarTokenMixin, Token):
+class PrintToken(Token):
     REGEXP = utils.make_regexp(
         r"""
-        \{\{                          # opening {{
-        ([a-zA-Z0-9_\. \t\n\r\f\v]+)  # group 1, 'var' in {{ var }}
-        \}\}                          # closing }}
-        """
-    )
+        {{\s*  # open {{
+        (%s)  # expression 'var' in {{ var }}
+        \s*}}    # closing }}
+        """ % REGEXP_EXPRESSION)
+
+    def extract_contents(self, matcher):
+        return {"expression": utils.make_expression(matcher.group(1))}
 
 
-class IfStartToken(VarTokenMixin, Token):
+class StartBlockToken(Token):
     REGEXP = utils.make_regexp(
         r"""
-        \{\?                          # opening {?
-        ([a-zA-Z0-9_\. \t\n\r\f\v]+)  # group 1, 'var' in {? var ?}
-        \?\}                          # closing ?}
-        """
-    )
+        {%%\s*  # open block tag
+        (%s)    # function name
+        (%s)?   # expression for function
+        \s*%%}  # closing block tag
+        """ % (REGEXP_FUNCTION, REGEXP_EXPRESSION))
+
+    def extract_contents(self, matcher):
+        return {
+            "function": matcher.group(1).strip(),
+            "expression": utils.make_expression(matcher.group(2))}
 
 
-class IfEndToken(Token):
-    REGEXP = utils.make_regexp(r"\{\?\}")
-
-
-class LoopStartToken(VarTokenMixin, Token):
+class EndBlockToken(Token):
     REGEXP = utils.make_regexp(
         r"""
-        \{\%                          # opening {%
-        ([a-zA-Z0-9_\. \t\n\r\f\v]+)  # group 1, 'var' in {% var %}
-        \%\}                          # closing %}
-        """
-    )
+        {%%\s*  # open block tag
+        /\s*    # / character
+        (%s)    # function name
+        \s*%%}  # closing block tag
+        """ % REGEXP_FUNCTION)
 
-
-class LoopEndToken(Token):
-    REGEXP = utils.make_regexp(r"\{%\}")
+    def extract_contents(self, matcher):
+        return {"function": matcher.group(1).strip()}
 
 
 class LiteralToken(Token):
@@ -87,32 +86,19 @@ class LiteralToken(Token):
         self.contents = {"text": self.TEXT_UNESCAPE.sub(r"\1", text)}
 
 
-TOKENS = collections.OrderedDict()
-TOKENS["print"] = PrintToken
-TOKENS["if_start"] = IfStartToken
-TOKENS["if_end"] = IfEndToken
-TOKENS["loop_start"] = LoopStartToken
-TOKENS["loop_end"] = LoopEndToken
-
-TOKENIZER_REGEXP = utils.make_regexp(
-    "|".join(
-        "(?P<{0}>{1})".format(k, v.REGEXP.pattern) for k, v in TOKENS.items()
-     )
-)
-
-
-def tokenize_iter(text):
+def tokenize(text):
     previous_end = 0
+    tokens = get_token_patterns()
     if isinstance(text, bytes):
         text = text.decode("utf-8")
 
-    for matcher in TOKENIZER_REGEXP.finditer(text):
+    for matcher in make_tokenizer_regexp().finditer(text):
         if matcher.start(0) != previous_end:
             yield LiteralToken(text[previous_end:matcher.start(0)])
         previous_end = matcher.end(0)
 
         match_groups = matcher.groupdict()
-        token_class = TOKENS[matcher.lastgroup]
+        token_class = tokens[matcher.lastgroup]
         yield token_class(match_groups[matcher.lastgroup])
 
     leftover = text[previous_end:]
@@ -120,5 +106,29 @@ def tokenize_iter(text):
         yield LiteralToken(leftover)
 
 
-def tokenize(text):
-    return tuple(tokenize_iter(text))
+@functools.lru_cache(1)
+def make_tokenizer_regexp():
+    patterns = get_token_patterns()
+    patterns = [
+        "(?P<{0}>{1})".format(k, v.REGEXP.pattern)
+        for k, v in patterns.items()]
+    patterns = "|".join(patterns)
+    patterns = utils.make_regexp(patterns)
+
+    return patterns
+
+
+@functools.lru_cache(1)
+def get_token_patterns():
+    return get_token_patterns_rec(Token)
+
+
+def get_token_patterns_rec(cls):
+    patterns = {}
+
+    for scls in cls.__subclasses__():
+        patterns.update(get_token_patterns_rec(scls))
+        if scls.REGEXP is not None:
+            patterns[scls.__name__] = scls
+
+    return patterns

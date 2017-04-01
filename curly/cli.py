@@ -14,7 +14,7 @@ def main():
     template = options.template.read()
 
     try:
-        print(curly.render(template, options.context))
+        print(curly.render(template, options.context), end="")
     except ValueError as exc:
         sys.exit(exc)
 
@@ -29,15 +29,14 @@ def get_options():
         "context",
         default="{}",  # NOQA
         type=json_parameter,
-        help="JSON with template context. Empty context is default.",
+        help="JSON with template context.",
         nargs=argparse.OPTIONAL
     )
     parser.add_argument(
         "template",
         type=argparse.FileType("r", encoding="utf-8"),
         default="-",
-        help="File where template is placed. Use '-' for reading from stdin "
-             "(default behaviour).",
+        help="File where template is placed. Use '-' for reading from stdin ",
         nargs=argparse.OPTIONAL
     )
 
