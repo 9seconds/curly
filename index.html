@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="stylesheet" href="./main.css"/>
+        <title>Curly — a toy template language</title>
+    </head>
+    <body>
+        <article>
+            <h1 id="curly-title" title="Curly — a toy template language">urly</h1>
+            <p class="subtitle">A toy template language</p>
+            <section>
+                <p>
+                  <span class="newthought">Curly</span> is the small and
+                  fun template engine which was created with only one
+                  goal in mind: simplicity of implementation.
+               </p>
+               <p>
+                  It should not be used anywhere in production (you may
+                  do it, of course, it is bug free and so on): there
+                  is a number of more convenient and smart choices:
+                  from <a href="http://jinja.pocoo.org">Jinja2</a>
+                  or <a href="http://makotemplates.org">Mako</a>
+                  if you are pythonista to <a
+                  href="http://mustache.github.io">Mustache</a> and <a
+                  href="http://handlebarsjs.com">Handlebars</a> if you
+                  are polyglot.
+                </p>
+                <p>
+                  Curly is easily extendable to the state of Mustache
+                  and Handlebars (actually, to implement Handlebars,
+                  you need just a couple of hours including testing,
+                  coffee drinking, serfing Reddit or Hacker News): a
+                  completeness is not a goal.
+                  <label for="gh-project-link" class="margin-toggle">&#8853;</label>
+                  <input type="checkbox" id="gh-project-link" class="margin-toggle"/>
+                  <span class="marginnote">
+                     The highly documented source code
+                     in Python can be found on <a
+                     href="https://github.com/9seconds/curly">GitHub</a>
+                     . Documentation is available on ReadTheDocs.
+                  </span>
+                  The goal is to have a small but useful toy templating
+                  language which can be expressed in any language &lt;
+                  500 lines overall.
+                </p>
+                <p>
+                  <label for="lexing-note" class="margin-toggle">&#8853;</label>
+                  <input type="checkbox" id="lexing-note" class="margin-toggle"/>
+                  <span class="marginnote">
+                    In real world, there are a number of
+                    different lexer and parser generators like
+                    <code>yacc</code> and <code>lex</code>. <code><a
+                    href="http://dabeaz.com/ply">PLY</a></code> is a
+                    good example how to do such things.
+                  </span>
+                  The main intention is to give an example on how
+                  to do lexing and parsing of the text, converting
+                  into abstract syntax tree and calculating template
+                  with a context after. So, like a study. That's why
+                  I do not want to extend the language further: it
+                  will complicate lexing (well, lexing here cannot be
+                  complicated) and parsing.
+                </p>
+            </section>
+            <section>
+                <h2 id="language-description">Language Description</h2>
+                <p>
+                  <span class="newthought">Like</span> <a
+                  href="http://mustache.github.io">Mustache</a>,
+                  the templating is done with special construction
+                  enclosed with curly braces. There are only 2 such
+                  constructions: <em>print</em> and <em>function
+                  call</em>.
+                </p>
+                <p>
+                  <label for="expression-note" class="margin-toggle">&#8853;</label>
+                  <input type="checkbox" id="expression-note" class="margin-toggle"/>
+                  <span class="marginnote">
+                    More or less everything in tag (except of function
+                    name) is an <em>expression</em>. In reference
+                    implementation expression is how to resolve
+                    certain context variables. It is possible to
+                    implement your own DSL here. Consider it as a
+                    homework.
+                  </span>
+                  The main difference between Curly and other template
+                  languages that reference implementation is really
+                  liberal: if you misprint something, in most cases
+                  it will be considered as a literal text, syntax
+                  errors are really such errors where it is impossible
+                  to recover to literal text. If you open a tag like
+                  <code>{%</code> but forget to close it, no worries: it
+                  will be considered as a text.
+                </p>
+                <h3>Printing</h3>
+                <p>
+                  To print variable <code>x</code> from the context,
+                  just put it in template like <code>{{ x }}</code>:
+                  this will do the trick. If you have a big nested
+                  context, it is totally fine to access variables with
+                  dot notation. Let's assume that <code>user</code>
+                  context variable is following:
+                </p>
+                <pre class="code">{
+    "first_name": "Sergey",
+    "last_name": "Arkhipov",
+    "roles": {
+        "team": [
+            {
+                "id": "user",
+                "read": true,
+                "write": true
+            },
+            {
+                "id": "execution",
+                "read": true,
+                "write": false
+            }
+        ]
+    }
+}</pre>
+                <p>
+                  So, to access execution read permission, just use
+                  following template:
+                </p>
+                <pre class="code">{{ user.roles.team.1.read }}</pre>
+                <h3>Function calls</h3>
+                <p>
+                  Function calls are loops, conditionals and
+                  everything which require some function. There are 3
+                  default functions are available:
+                </p>
+                <ol>
+                    <li><code>if</code></li>
+                    <li><code>if-not</code></li>
+                    <li><code>loop</code></li>
+                </ol>
+                <p>
+                  For example, if you want to print a work place only
+                  if available, do following:
+                <p>
+                <pre class="code">{{ name }}{% if work %} ({{ work.job_title }} at {{ work.company_name }}){% /if %}</pre>
+                <p>
+                  <label for="loop-note" class="margin-toggle">&#8853;</label>
+                  <input type="checkbox" id="loop-note" class="margin-toggle"/>
+                  <span class="marginnote">
+                    If you loop over dictionary (map, object, you
+                    name it), the item has <code>key</code> and
+                    <code>value</code> fields. In all other case
+                    <code>item</code> is literally the item of an
+                    iterable.
+                  </span>
+                  To loop over some variable:
+                </p>
+                <pre class="code">{% loop tags %}-{{ item }}
+{% /loop %}</pre>
+            </section>
+        </article>
+    </body>
+</html>
