@@ -1,4 +1,61 @@
 # -*- coding: utf-8 -*-
+"""Lexer has one of the main Curly's functions, :py:func:`tokenize`.
+
+The main idea of lexing is to split raw text into structured list of
+well known and defined parts, called *tokens*. Each token has a class
+and some contents (let's say, from ``{% if something %}`` we can get
+following contents for :py:class:`StartBlockToken`: ``if`` as a function
+name and ``["something"]`` as a block expression).
+
+Here is the example:
+
+.. code-block:: python3
+
+  >>> from curly.lexer import tokenize
+  >>> text = '''\\
+  ...     Hello! My name is {{ name }}.\\
+  ... {% if likes %}And I like these things: {% loop likes %}\\
+  ... {{ item }},{% /loop %}{% /if %}'''
+  >>> for token in tokenize(text):
+  ...     print(repr(token))
+  ...
+  <LiteralToken(raw='    Hello! My name is ', \
+contents={'text': '    Hello! My name is '})>
+  <PrintToken(raw='{{ name }}', contents={'expression': ['name']})>
+  <LiteralToken(raw='.', contents={'text': '.'})>
+  <StartBlockToken(raw='{% if likes %}', \
+contents={'function': 'if', 'expression': ['likes']})>
+  <LiteralToken(raw='And I like these things: ', \
+contents={'text': 'And I like these things: '})>
+  <StartBlockToken(raw='{% loop likes %}', \
+contents={'function': 'loop', 'expression': ['likes']})>
+  <PrintToken(raw='{{ item }}', contents={'expression': ['item']})>
+  <LiteralToken(raw=',', contents={'text': ','})>
+  <EndBlockToken(raw='{% /loop %}', contents={'function': 'loop'})>
+  <EndBlockToken(raw='{% /if %}', contents={'function': 'if'})>
+  >>>
+
+Some terminology:
+
+*function*
+  Function is the name of function to call within a block. For example,
+  in block tag ``{% if something %}`` function is ``if``.
+
+*expression*
+  Expression is the something to print or to pass to function. For
+  example, in block tag ``{% if lala | blabla | valueof "qq pp" %}``,
+  expression is ``lala | blabla | valueof "qq pp"``. Usually, expression
+  is parsed according to POSIX shell lexing: ``["lala", "|", "blabla",
+  "|", "valueof", "qq pp"]``.
+
+  It is out of the scope of the Curly is how to implement evaluation
+  of the expression. By default, curly tries to find it in
+  context literally, but if you want, feel free to implement your
+  own Jinja2-style DSL. Or even call :py:func:`ast.parse` with
+  :py:func:`compile`.
+
+For details on lexing please check :py:func:`tokenize` function.
+"""
 
 
 import functools
@@ -7,10 +64,22 @@ from curly import utils
 
 
 REGEXP_FUNCTION = r"[a-zA-Z0-9_-]+"
+"""Regular expression for function definition."""
+
 REGEXP_EXPRESSION = r"(?:\\.|[^\{\}])+"
+"""Regular expression for 'expression' definition."""
 
 
 class Token:
+    """Base class for every token to parse.
+
+    Token is parsed by :py:func:`tokenize` only if it has defined REGEXP
+    attribute.
+
+    :param str raw_string: Text which was recognized as a token.
+    :raises ValueError: if ``raw_string`` does not match for
+        some reason.
+    """
 
     __slots__ = "contents", "raw_string"
 
@@ -27,6 +96,12 @@ class Token:
         self.raw_string = raw_string
 
     def extract_contents(self, matcher):
+        """Extract more detail token information from regular expression.
+
+        :param re.Matcher matcher: Matcher from :py:func:`re.match`.
+        :return: A details on the token.
+        :rtype: dict[str, str]
+        """
         return {}
 
     def __str__(self):
@@ -38,18 +113,33 @@ class Token:
 
 
 class PrintToken(Token):
+    """Responsible for matching of print tag ``{{ var }}``.
+
+    The contents of the block is the *expression* which should be
+    printed. In ``{{ var }}`` it is ``["var"]``. Regular expression for
+    *expression* is :py:data:`REGEXP_EXPRESSION`.
+    """
     REGEXP = utils.make_regexp(
         r"""
         {{\s*  # open {{
         (%s)  # expression 'var' in {{ var }}
         \s*}}    # closing }}
         """ % REGEXP_EXPRESSION)
+    """Regular expression of the token."""
 
     def extract_contents(self, matcher):
         return {"expression": utils.make_expression(matcher.group(1))}
 
 
 class StartBlockToken(Token):
+    """Responsible for matching of start function call block tag.
+
+    In other words, it matches ``{% function expr1 expr2 expr3... %}``.
+
+    The contents of the block is the *function* and *expression*.
+    Regular expression for *function* is :py:data:`REGEXP_FUNCTION`, for
+    expression: :py:data:`REGEXP_EXPRESSION`.
+    """
     REGEXP = utils.make_regexp(
         r"""
         {%%\s*  # open block tag
@@ -57,6 +147,7 @@ class StartBlockToken(Token):
         (%s)?   # expression for function
         \s*%%}  # closing block tag
         """ % (REGEXP_FUNCTION, REGEXP_EXPRESSION))
+    """Regular expression of the token."""
 
     def extract_contents(self, matcher):
         return {
@@ -65,6 +156,13 @@ class StartBlockToken(Token):
 
 
 class EndBlockToken(Token):
+    """Responsible for matching of ending function call block tag.
+
+    In other words, it matches ``{% /function %}``.
+
+    The contents of the block is the *function* (regular expression is
+    :py:data:`REGEXP_FUNCTION`).
+    """
     REGEXP = utils.make_regexp(
         r"""
         {%%\s*  # open block tag
@@ -72,13 +170,22 @@ class EndBlockToken(Token):
         (%s)    # function name
         \s*%%}  # closing block tag
         """ % REGEXP_FUNCTION)
+    """Regular expression of the token."""
 
     def extract_contents(self, matcher):
         return {"function": matcher.group(1).strip()}
 
 
 class LiteralToken(Token):
+    """Responsible for parts of the texts which are literal.
 
+    Literal part of the text should be printed as is, they are context
+    undependend and not enclosed in any tag. Otherwise: they are placed
+    outside any tag.
+
+    For example, in the template ``{{ first_name }} - {{ last_name }}``,
+    literal token is " - " (yes, with spaces).
+    """
     TEXT_UNESCAPE = utils.make_regexp(r"\\(.)")
 
     def __init__(self, text):
