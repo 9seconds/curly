@@ -101,7 +101,7 @@ def parse(tokens):
         elif isinstance(token, lexer.StartBlockToken):
             stack.append(BlockTagNode(token))
         elif isinstance(token, lexer.EndBlockToken):
-            stack = rewind_stack(stack, token)
+            stack = rewind_stack_for_end_block(stack, token)
         else:
             raise ValueError("Unknown token {0}".format(token))
 
@@ -117,7 +117,7 @@ def parse(tokens):
     return root
 
 
-def rewind_stack(stack, end_token):
+def rewind_stack_for_end_block(stack, end_token):
     nodes = []
 
     while stack:
@@ -133,8 +133,8 @@ def rewind_stack(stack, end_token):
     if node.function != end_token.contents["function"]:
         raise ValueError(
             "Expected to find {0} start statement, "
-            "got {1} instead".format(node.function,
-                                     end_token.contents["function"]))
+            "got {1} instead".format(
+                node.function, end_token.contents["function"]))
 
     node.ready = True
     node.nodes = nodes[::-1]
