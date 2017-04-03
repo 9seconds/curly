@@ -24,11 +24,10 @@ class Template:
         AST tree.
     """
 
-    __slots__ = "env", "node"
+    __slots__ = "node",
 
-    def __init__(self, env, text):
+    def __init__(self, text):
         self.node = parser.parse(lexer.tokenize(text))
-        self.env = env
 
     def render(self, context):
         """Render template into according to the given context.
@@ -40,4 +39,4 @@ class Template:
         :raises ValueError: if it is not possible to render template
             with the given context.
         """
-        return self.node.process(self.env, context)
+        return self.node.process(context)

@@ -30,8 +30,6 @@ for details.
 
 
 from curly.template import Template  # NOQA
-from curly.env import Env  # NOQA
-from curly.env import DEFAULT_ENV
 
 
 def render(text, context):
@@ -47,8 +45,8 @@ def render(text, context):
 
     .. code-block:: pycon
 
-      >>> from curly.env import DEFAULT_ENV
-      >>> template = DEFAULT_ENV.template(text)
+      >>> from curly.template import Template
+      >>> template = Template(text)
       >>> result1 = template.render(context1)
       >>> result2 = template.render(context2)
 
@@ -60,4 +58,4 @@ def render(text, context):
     :rtype: str
     :raises ValueError: if template is impossible to render
     """
-    return DEFAULT_ENV.template(text).render(context)
+    return Template(text).render(context)

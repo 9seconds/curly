@@ -76,15 +76,15 @@ class Node:
     :type token: :py:class:`curly.lexer.Token`
     """
 
-    __slots__ = "token", "nodes", "ready"
+    __slots__ = "token", "nodes", "done"
 
     def __init__(self, token):
         self.token = token
         self.nodes = []
-        self.ready = False
+        self.done = False
 
     def __str__(self):
-        return ("<{0.__class__.__name__}(ready={0.ready}, token={0.token!r}, "
+        return ("<{0.__class__.__name__}(done={0.done}, token={0.token!r}, "
                 "nodes={0.nodes!r})>").format(self)
 
     def __repr__(self):
@@ -93,7 +93,7 @@ class Node:
     def _repr_rec(self):
         return {
             "token": self.token,
-            "finished": self.ready,
+            "done": self.done,
             "nodes": [node._repr_rec() for node in self.nodes]}
 
     @property
@@ -108,31 +108,26 @@ class Node:
         """
         return self.token.raw_string
 
-    def process(self, env, context):
+    def process(self, context):
         """Return rendered content of the node as a string.
 
-        :param env: Environment functions for rendering.
         :param dict context: Dictionary with a context variables.
-        :type env: :py:class:`curly.env.Env`
         :return: Rendered template
         :rtype: str
         """
-        return "".join(self.emit(env, context))
+        return "".join(self.emit(context))
 
-    def emit(self, env, context):
+    def emit(self, context):
         """Return generator which emits rendered chunks of text.
 
-        Axiom: ``"".join(self.emit(env, context)) == self.process(env,
-        context)``
+        Axiom: ``"".join(self.emit(context)) == self.process(context)``
 
-        :param env: Environment functions for rendering.
         :param dict context: Dictionary with a context variables.
-        :type env: :py:class:`curly.env.Env`
         :return: Generator with rendered texts.
         :rtype: Generator[str]
         """
         for node in self.nodes:
-            yield from node.emit(env, context)
+            yield from node.emit(context)
 
 
 class LiteralNode(Node):
@@ -147,13 +142,13 @@ class LiteralNode(Node):
 
     def __init__(self, token):
         super().__init__(token)
-        self.ready = True
+        self.done = True
 
     @property
     def text(self):
         return self.token.contents["text"]
 
-    def emit(self, env, context):
+    def emit(self, _):
         yield self.text
 
 
@@ -170,13 +165,13 @@ class PrintNode(Node):
 
     def __init__(self, token):
         super().__init__(token)
-        self.ready = True
+        self.done = True
 
     @property
     def expression(self):
         return self.token.contents["expression"]
 
-    def emit(self, env, context):
+    def emit(self, context):
         value = subprocess.list2cmdline(self.expression)
         yield str(utils.resolve_variable(value, context))
 
@@ -191,15 +186,55 @@ class BlockTagNode(Node):
     def function(self):
         return self.token.contents["function"]
 
-    def emit(self, env, context):
-        function = env.get(self.function)
+    def evaluated_expression(self, context):
+        value = subprocess.list2cmdline(self.expression)
+        value = utils.resolve_variable(value, context)
 
-        if not callable(function):
-            raise ValueError(
-                "Cannot find callable function {0} in environment".format(
-                    function))
+        return value
 
-        yield from function(self, env, context)
+
+class ConditionalNode(BlockTagNode):
+
+    def __init__(self, token):
+        super().__init__(token)
+        self.ifnode = None
+
+    def emit(self, context):
+        if self.ifnode is not None:
+            yield from self.ifnode.emit(context)
+
+
+class IfNode(BlockTagNode):
+
+    def __init__(self, token):
+        super().__init__(token)
+        self.elsenode = None
+
+    def emit(self, context):
+        if self.evaluated_expression(context):
+            yield from super().emit(context)
+        elif self.elsenode:
+            yield from self.elsenode.emit(context)
+
+
+class ElseNode(BlockTagNode):
+    pass
+
+
+class LoopNode(BlockTagNode):
+
+    def emit(self, context):
+        resolved = self.evaluated_expression(context)
+        context_copy = context.copy()
+
+        if isinstance(resolved, dict):
+            for key, value in sorted(resolved.items()):
+                context_copy["item"] = {"key": key, "value": value}
+                yield from super().emit(context_copy)
+        else:
+            for item in resolved:
+                context_copy["item"] = item
+                yield from super().emit(context_copy)
 
 
 def parse(tokens):
@@ -207,18 +242,18 @@ def parse(tokens):
 
     for token in tokens:
         if isinstance(token, lexer.LiteralToken):
-            stack.append(LiteralNode(token))
+            stack = parse_literal_token(stack, token)
         elif isinstance(token, lexer.PrintToken):
-            stack.append(PrintNode(token))
+            stack = parse_print_token(stack, token)
         elif isinstance(token, lexer.StartBlockToken):
-            stack.append(BlockTagNode(token))
+            stack = parse_start_block_token(stack, token)
         elif isinstance(token, lexer.EndBlockToken):
             stack = rewind_stack_for_end_block(stack, token)
         else:
             raise ValueError("Unknown token {0}".format(token))
 
     for node in stack:
-        if not node.ready:
+        if not node.done:
             raise ValueError(
                 "Cannot find enclosement statement for {0.function}".format(
                     node))
@@ -227,6 +262,34 @@ def parse(tokens):
     root.nodes = stack
 
     return root
+
+
+def parse_literal_token(stack, token):
+    stack.append(LiteralNode(token))
+
+    return stack
+
+
+def parse_print_token(stack, token):
+    stack.append(PrintNode(token))
+
+    return stack
+
+
+def parse_start_block_token(stack, token):
+    function = token.contents["function"]
+
+    if function == "if":
+        return parse_start_if_token(stack, token)
+    elif function == "elif":
+        return parse_start_elif_token(stack, token)
+    elif function == "else":
+        return parse_start_else_token(stack, token)
+    elif function == "loop":
+        return parse_start_loop_token(stack, token)
+    else:
+        raise ValueError(
+            "Unknown block tag {0}".format(token.raw_string))
 
 
 def rewind_stack_for_end_block(stack, end_token):
