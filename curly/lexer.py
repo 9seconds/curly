@@ -118,8 +118,8 @@ class PrintToken(Token):
     REGEXP = utils.make_regexp(
         r"""
         {{\s*  # open {{
-        (%s)  # expression 'var' in {{ var }}
-        \s*}}    # closing }}
+        (%s)   # expression 'var' in {{ var }}
+        \s*}}  # closing }}
         """ % REGEXP_EXPRESSION)
     """Regular expression of the token."""
 
