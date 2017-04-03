@@ -84,16 +84,21 @@ from curly import utils
 
 
 class ExpressionMixin:
+    """A small helper mixin for :py:class:`Node` which adds
+    expression related methods.
+    """
 
     @property
     def expression(self):
+        """*expression* from underlying token."""
         return self.token.contents["expression"]
 
-    @property
-    def function(self):
-        return self.token.contents["function"]
+    def evaluate_expression(self, context):
+        """Evaluate *expression* in given context.
 
-    def evaluated_expression(self, context):
+        :param dict context: Variables for template rendering.
+        :return: Evaluated expression.
+        """
         value = subprocess.list2cmdline(self.expression)
         value = utils.resolve_variable(value, context)
 
@@ -138,13 +143,10 @@ class Node(collections.UserList):
 
     @property
     def raw_string(self):
-        """Return a raw content of the related token.
+        """Raw content of the related token.
 
         For example, for token ``{{ var }}`` it returns literally ``{{
         var }}``.
-
-        :return: Raw content of the token.
-        :rtype: str
         """
         return self.token.raw_string
 
@@ -171,6 +173,10 @@ class Node(collections.UserList):
 
 
 class RootNode(Node):
+    """Node class for the most top-level node, root.
+
+    :param list[Node] nodes: Nodes for root.
+    """
 
     def __init__(self, nodes):
         super().__init__(None)
@@ -203,6 +209,7 @@ class LiteralNode(Node):
 
     @property
     def text(self):
+        """Rendered text."""
         return self.token.contents["text"]
 
     def emit(self, _):
@@ -230,15 +237,18 @@ class PrintNode(ExpressionMixin, Node):
 
         return struct
 
-    @property
-    def expression(self):
-        return self.token.contents["expression"]
-
     def emit(self, context):
-        yield str(self.evaluated_expression(context))
+        yield str(self.evaluate_expression(context))
 
 
 class BlockTagNode(ExpressionMixin, Node):
+    """Node which presents block tag token.
+
+    Block tag example: ``{% if something %}``. This, with ``{%`` stuff.
+
+    This is one-to-one representation of
+    :py:class:`curly.lexer.StartBlockToken` token.
+    """
 
     @property
     def function(self):
@@ -275,7 +285,7 @@ class IfNode(BlockTagNode):
         return struct
 
     def emit(self, context):
-        if self.evaluated_expression(context):
+        if self.evaluate_expression(context):
             return super().emit(context)
         elif self.elsenode:
             return self.elsenode.emit(context)
@@ -294,7 +304,7 @@ class LoopNode(BlockTagNode):
         return struct
 
     def emit(self, context):
-        resolved = self.evaluated_expression(context)
+        resolved = self.evaluate_expression(context)
         context_copy = context.copy()
 
         if isinstance(resolved, dict):
