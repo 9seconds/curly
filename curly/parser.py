@@ -199,9 +199,14 @@ class ConditionalNode(BlockTagNode):
         super().__init__(token)
         self.ifnode = None
 
+    def _repr_rec(self):
+        struct = super()._repr_rec()
+        struct["if"] = self.ifnode._repr_rec() if self.ifnode else {}
+
+        return struct
+
     def emit(self, context):
-        if self.ifnode is not None:
-            yield from self.ifnode.emit(context)
+        yield from self.ifnode.emit(context)
 
 
 class IfNode(BlockTagNode):
@@ -209,6 +214,12 @@ class IfNode(BlockTagNode):
     def __init__(self, token):
         super().__init__(token)
         self.elsenode = None
+
+    def _repr_rec(self):
+        struct = super()._repr_rec()
+        struct["else"] = self.elsenode._repr_rec() if self.elsenode else {}
+
+        return struct
 
     def emit(self, context):
         if self.evaluated_expression(context):
@@ -248,7 +259,7 @@ def parse(tokens):
         elif isinstance(token, lexer.StartBlockToken):
             stack = parse_start_block_token(stack, token)
         elif isinstance(token, lexer.EndBlockToken):
-            stack = rewind_stack_for_end_block(stack, token)
+            stack = parse_end_block_token(stack, token)
         else:
             raise ValueError("Unknown token {0}".format(token))
 
@@ -292,26 +303,84 @@ def parse_start_block_token(stack, token):
             "Unknown block tag {0}".format(token.raw_string))
 
 
-def rewind_stack_for_end_block(stack, end_token):
+def parse_end_block_token(stack, token):
+    function = token.contents["function"]
+
+    if function == "if":
+        return parse_end_if_token(stack, token)
+    elif function == "loop":
+        return parse_end_loop_token(stack, token)
+    else:
+        raise ValueError(
+            "Unknown end block tag {0}".format(token.raw_string))
+
+
+def parse_start_if_token(stack, token):
+    stack.append(ConditionalNode(token))
+    stack.append(IfNode(token))
+
+    return stack
+
+
+def parse_start_elif_token(stack, token):
+    stack = rewind_stack_for(stack, search_for=(IfNode,))
+    stack.append(IfNode(token))
+
+    return stack
+
+
+def parse_start_else_token(stack, token):
+    stack = rewind_stack_for(stack, search_for=(IfNode,))
+    stack.append(ElseNode(token))
+
+    return stack
+
+
+def parse_start_loop_token(stack, token):
+    stack.append(LoopNode(token))
+
+    return stack
+
+
+def parse_end_if_token(stack, token):
+    stack = rewind_stack_for(stack, search_for=(IfNode, ElseNode))
+    stack = rewind_stack_for(stack, search_for=(ConditionalNode,))
+
+    cond = stack.pop()
+    previous_node = cond.nodes[0]
+    for next_node in cond.nodes[1:]:
+        if isinstance(previous_node, ElseNode):
+            raise ValueError(
+                "If statement {0} has multiple elses".format(
+                    cond.nodes[0].raw_string))
+        previous_node.elsenode = next_node
+        previous_node = next_node
+
+    stack.append(cond.nodes[0])
+
+    return stack
+
+
+def parse_end_loop_token(stack, token):
+    return rewind_stack_for(stack, search_for=(LoopNode,))
+
+
+def rewind_stack_for(stack, *, search_for):
     nodes = []
 
     while stack:
         node = stack.pop()
-        if not node.ready:
+        if not node.done:
             break
         nodes.append(node)
     else:
-        raise ValueError(
-            "Cannot find matching {0} start statement".format(
-                end_token.contents["function"]))
+        raise ValueError("Cannot find matching start statement")
 
-    if node.function != end_token.contents["function"]:
+    if not isinstance(node, search_for):
         raise ValueError(
-            "Expected to find {0} start statement, "
-            "got {1} instead".format(
-                node.function, end_token.contents["function"]))
+            "Expected to find loop start statement, got {0}".format(node))
 
-    node.ready = True
+    node.done = True
     node.nodes = nodes[::-1]
     stack.append(node)
 
