@@ -252,10 +252,26 @@ class BlockTagNode(ExpressionMixin, Node):
 
     @property
     def function(self):
+        """*function* from underlying token."""
         return self.token.contents["function"]
 
 
 class ConditionalNode(BlockTagNode):
+    """Node which represent condition.
+
+    This is a not real node in AST tree, this is a preliminary node
+    which should be popped on closing and be replaced by actual
+    :py:class:`IfNode`.
+
+    Such fictional node is required to simplify logic of parsing
+    for if/elif/elif/else blocks. If conditions are nested, we
+    need to identify the groups of conditional flows and attach
+    :py:class:`IfNode` and :py:class:`ElseNode` for correct parents.
+
+    :param token: Token, which starts to produce that node. Basically,
+        it is a first token from the ``if`` block.
+    :type token: :py:class:`curly.lexer.BlockTagNode`
+    """
 
     def __init__(self, token):
         super().__init__(token)
@@ -272,6 +288,36 @@ class ConditionalNode(BlockTagNode):
 
 
 class IfNode(BlockTagNode):
+    """Node which represents ``if`` statement. And ``elif``.
+
+    Actually, since we have :py:class:`ConditionalNode`, it is possible
+    to use only 1 node type for ifs. Here is why:
+
+    .. code-block:: json
+
+        {
+            "conditional": [
+                {
+                    "if": "expression1",
+                    "nodes": []
+                },
+                {
+                    "if": "expression2",
+                    "nodes": []
+                },
+                {
+                    "else": "",
+                    "nodes": []
+                }
+            ]
+        }
+
+    Here is an idea how does ``if``/``elif``/``else`` looks like with
+    conditional You have a list of :py:class:`IfNode` instances and one
+    (optional) :py:class:`ElseNode` at the end. So if first ``if`` does
+    not match, you go to the next one. If it is ``true``, emit its nodes
+    and exit ``conditional``.
+    """
 
     def __init__(self, token):
         super().__init__(token)
@@ -292,10 +338,24 @@ class IfNode(BlockTagNode):
 
 
 class ElseNode(BlockTagNode):
-    pass
+    """Node which represents ``else`` statement.
+
+    For idea how it works, please check description of
+    :py:class:`IfNode`.
+    """
 
 
 class LoopNode(BlockTagNode):
+    """Node which represents ``loop`` statement.
+
+    This node repeats its content as much times as elements found in its
+    evaluated expression. Every iteration it injects ``item`` variable
+    into the context (incoming context is safe and untouched).
+
+    For dicts, it emits `{"key": k, "value": v}` where ``k`` and ``v``
+    are taken from ``expression.items()``. For any other iterable
+    it emits item as is.
+    """
 
     def _repr_rec(self):
         struct = super()._repr_rec()
@@ -318,6 +378,68 @@ class LoopNode(BlockTagNode):
 
 
 def parse(tokens):
+    """One of the main functions (see also :py:func:`curly.lexer.tokenize`).
+
+    The idea of parsing is simple: we have a flow of well defined tokens
+    taken from :py:func:`curly.lexer.tokenize` and now we need to build
+    `AST tree <https://en.wikipedia.org/wiki/Abstract_syntax_tree>`_
+    from them.
+
+    Curly does that maintaining a single stack. There could be different
+    implementations, some of them more efficient, but we are using
+    single stack implementation because it is most obvious way of
+    representing and idea on current scale of the template language. If
+    you decide to fork one day, please consider other options.
+
+    Please read following stuff before (at least Wikipedia articles):
+
+    * https://en.wikipedia.org/wiki/Shift-reduce_parser
+    * https://en.wikipedia.org/wiki/LR_parser
+    * https://en.wikipedia.org/wiki/Shunting-yard_algorithm
+    * https://en.wikipedia.org/wiki/Operator-precedence_parser
+    * http://blog.reverberate.org/2013/09/\
+ll-and-lr-in-context-why-parsing-tools.html
+    * http://blog.reverberate.org/2013/07/ll-and-lr-parsing-demystified.html
+
+    Current implementation is *LR(0)* parser. Feel free to compose
+    formal grammar if you want (:py:class:`curly.lexer.LiteralToken`
+    is terminal, everything except of it - non terminal). I am going
+    to describe just a main idea in a simple words pretendind that no
+    theory was created before.
+
+    Now, algorithm.
+
+    #. Read from the Left (look, ma! *L* from *LR*!) of stream,
+       without returning back. This allow us to use ``tokens`` as
+       an iterator.
+    #. For any token, check its class and call corresponding function
+       which manages it.
+
+       .. list-table::
+         :header-rows: 1
+
+         * - Token type
+           - Parsing function
+         * - :py:class:`curly.lexer.LiteralToken`
+           - :py:func:`parse_literal_token`
+         * - :py:class:`curly.lexer.PrintToken`
+           - :py:func:`parse_print_token`
+         * - :py:class:`curly.lexer.StartBlockToken`
+           - :py:func:`parse_start_block_token`
+         * - :py:class:`curly.lexer.EndBlockToken`
+           - :py:func:`parse_end_block_token`
+
+    #. After all tokens are consumed, check that all nodes in the
+       stack are done (``done`` attribute) and build resulting
+       :py:class:`RootNode` instance.
+
+    :param token: A stream with tokens.
+    :type token: Iterator[:py:class:`curly.lexer.Token`]
+    :return: Parsed AST tree.
+    :rtype: :py:class:`RootNode`
+    :raises ValueError: if it is not possible to parse this stream
+        for some reason.
+    """
     stack = []
 
     for token in tokens:
@@ -442,7 +564,8 @@ def rewind_stack_for(stack, *, search_for):
 
     if not isinstance(node, search_for):
         raise ValueError(
-            "Expected to find loop start statement, got {0}".format(node))
+            "Expected to find {0} start statement, got {1}".format(
+                search_for, node))
 
     node.done = True
     node.data = nodes[::-1]
