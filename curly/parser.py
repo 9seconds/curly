@@ -286,9 +286,9 @@ class IfNode(BlockTagNode):
 
     def emit(self, context):
         if self.evaluate_expression(context):
-            return super().emit(context)
+            yield from super().emit(context)
         elif self.elsenode:
-            return self.elsenode.emit(context)
+            yield from self.elsenode.emit(context)
 
 
 class ElseNode(BlockTagNode):
@@ -335,8 +335,7 @@ def parse(tokens):
     for node in stack:
         if not node.done:
             raise ValueError(
-                "Cannot find enclosement statement for {0.function}".format(
-                    node))
+                "Cannot find enclosement statement for {0}".format(node))
 
     return RootNode(stack)
 
@@ -365,8 +364,7 @@ def parse_start_block_token(stack, token):
     elif function == "loop":
         return parse_start_loop_token(stack, token)
     else:
-        raise ValueError(
-            "Unknown block tag {0}".format(token.raw_string))
+        raise ValueError("Unknown block tag {0}".format(token))
 
 
 def parse_end_block_token(stack, token):
@@ -377,8 +375,7 @@ def parse_end_block_token(stack, token):
     elif function == "loop":
         return parse_end_loop_token(stack, token)
     else:
-        raise ValueError(
-            "Unknown end block tag {0}".format(token.raw_string))
+        raise ValueError("Unknown end block tag {0}".format(token))
 
 
 def parse_start_if_token(stack, token):
