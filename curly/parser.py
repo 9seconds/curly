@@ -21,34 +21,57 @@ Example:
   ... {% if likes %}And I like these things: {% loop likes %}\\
   ... {{ item }},{% /loop %}{% /if %}'''
   >>> tokens = tokenize(text)
-  >>> print(parse(tokens))
-  <Node(ready=False, token=None, nodes=[{'finished': True,
+  >>> print(repr(parse(tokens)))
+  [{'done': True,
    'nodes': [],
-   'token': <LiteralToken(raw='  Hello! My name is ', contents={'text': \
-'  Hello! My name is '})>}, {'finished': True,
+   'raw_string': "<LiteralToken(raw='    Hello! My name is ', contents={\
+'text': "
+                 "'    Hello! My name is '})>",
+   'text': '    Hello! My name is ',
+   'type': 'LiteralNode'},
+   {'done': True,
+   'expression': ['name'],
    'nodes': [],
-   'token': <PrintToken(raw='{{ name }}', \
-contents={'expression': ['name']})>}, {'finished': True,
+   'raw_string': "<PrintToken(raw='{{ name }}', contents={'expression': "
+                 "['name']})>",
+   'type': 'PrintNode'},
+   {'done': True,
    'nodes': [],
-   'token': <LiteralToken(raw='.', contents={'text': '.'})>}, \
-{'finished': True,
-   'nodes': [{'finished': True,
+   'raw_string': "<LiteralToken(raw='.', contents={'text': '.'})>",
+   'text': '.',
+   'type': 'LiteralNode'},
+   {'done': True,
+   'else': {},
+   'expression': ['likes'],
+   'nodes': [{'done': True,
               'nodes': [],
-              'token': <LiteralToken(raw='And I like these things: \
-', contents={'text': 'And I like these things: '})>},
-             {'finished': True,
-              'nodes': [{'finished': True,
+              'raw_string': "<LiteralToken(raw='And I like these things: ', "
+                            "contents={'text': 'And I like these things: '})>",
+              'text': 'And I like these things: ',
+              'type': 'LiteralNode'},
+             {'done': True,
+              'expression': ['likes'],
+              'nodes': [{'done': True,
+                         'expression': ['item'],
                          'nodes': [],
-                         'token': <PrintToken(raw='{{ item }}', \
-contents={'expression': ['item']})>},
-                        {'finished': True,
+                         'raw_string': "<PrintToken(raw='{{ item }}', "
+                                       "contents={'expression': ['item']})>",
+                         'type': 'PrintNode'},
+                        {'done': True,
                          'nodes': [],
-                         'token': <LiteralToken(raw=',', \
-contents={'text': ','})>}],
-              'token': <StartBlockToken(raw='{% loop likes %}', \
-contents={'expression': ['likes'], 'function': 'loop'})>}],
-   'token': <StartBlockToken(raw='{%if likes %}', \
-contents={'expression': ['likes'], 'function': 'if'})>}])>
+                         'raw_string': "<LiteralToken(raw=',', contents=\
+{'text': "
+                                       "','})>",
+                         'text': ',',
+                         'type': 'LiteralNode'}],
+              'raw_string': "<StartBlockToken(raw='{% loop likes %}', "
+                            "contents={'expression': ['likes'], 'function': "
+                            "'loop'})>",
+              'type': 'LoopNode'}],
+   'raw_string': "<StartBlockToken(raw='{% if likes %}', contents=\
+{'expression': "
+                 "['likes'], 'function': 'if'})>",
+   'type': 'IfNode'}]
 """
 
 

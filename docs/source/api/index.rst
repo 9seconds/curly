@@ -14,6 +14,5 @@ API reference
 
    lexer
    parser
-   env
    template
    utils

@@ -1,19 +1,12 @@
 # -*- coding: utf-8 -*-
 """An implementation of Curly language.
 
-Curly contains only 5 modules (including rudiment stuff for CLI):
-lexing, parsing, environment, template and utils.
+Curly contains only 4 modules (including rudiment stuff for CLI):
+lexing, parsing, template and utils.
 
-The control flow is like this: to render the template, you need to have
-:py:class:`curly.env.Env` instance. The main idea of the environment
-instance is to support function call tags (these ``{% func expression
-%}...{% /func %}``). Basically, environment is just a collection of such
-functions.
-
-After that (or before that, doesn't matter, environment is required
-only to calculate the value of the template along with context),
-you can create an instance of :py:class:`curly.template.Template`.
-Template has a parsed AST tree (it is created on its initialization
+The control flow is: to render the template, you need to create
+an instance of :py:class:`curly.template.Template`. Template
+has a parsed AST tree (it is created on its initialization
 phase) of the real template and a number of routines (main is
 :py:meth:`curly.template.Template.render`) to calculate the value of the
 given template string.

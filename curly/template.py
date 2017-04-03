@@ -17,7 +17,6 @@ class Template:
     Using this class, you can render the template for different contexes
     without reparsing it each time.
 
-    :param curly.env.Env env: Environment for the template.
     :param text: A template to compile.
     :type text: str or bytes
     :raises ValueError: if it is not possible to convert text into
