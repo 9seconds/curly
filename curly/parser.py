@@ -59,6 +59,23 @@ from curly import lexer
 from curly import utils
 
 
+class ExpressionMixin:
+
+    @property
+    def expression(self):
+        return self.token.contents["expression"]
+
+    @property
+    def function(self):
+        return self.token.contents["function"]
+
+    def evaluated_expression(self, context):
+        value = subprocess.list2cmdline(self.expression)
+        value = utils.resolve_variable(value, context)
+
+        return value
+
+
 class Node:
     """Node of an AST tree.
 
@@ -92,7 +109,7 @@ class Node:
 
     def _repr_rec(self):
         return {
-            "string": self.token.raw_string if self.token else "",
+            "raw_string": self.token.raw_string if self.token else "",
             "type": self.__class__.__name__,
             "done": self.done,
             "nodes": [node._repr_rec() for node in self.nodes]}
@@ -145,6 +162,12 @@ class LiteralNode(Node):
         super().__init__(token)
         self.done = True
 
+    def _repr_rec(self):
+        struct = super()._repr_rec()
+        struct["text"] = self.text
+
+        return struct
+
     @property
     def text(self):
         return self.token.contents["text"]
@@ -153,7 +176,7 @@ class LiteralNode(Node):
         yield self.text
 
 
-class PrintNode(Node):
+class PrintNode(ExpressionMixin, Node):
     """Node which presents print token.
 
     This is one-to-one representation of
@@ -168,30 +191,25 @@ class PrintNode(Node):
         super().__init__(token)
         self.done = True
 
+    def _repr_rec(self):
+        struct = super()._repr_rec()
+        struct["expression"] = self.expression
+
+        return struct
+
     @property
     def expression(self):
         return self.token.contents["expression"]
 
     def emit(self, context):
-        value = subprocess.list2cmdline(self.expression)
-        yield str(utils.resolve_variable(value, context))
+        yield str(self.evaluated_expression(context))
 
 
-class BlockTagNode(Node):
-
-    @property
-    def expression(self):
-        return self.token.contents["expression"]
+class BlockTagNode(ExpressionMixin, Node):
 
     @property
     def function(self):
         return self.token.contents["function"]
-
-    def evaluated_expression(self, context):
-        value = subprocess.list2cmdline(self.expression)
-        value = utils.resolve_variable(value, context)
-
-        return value
 
 
 class ConditionalNode(BlockTagNode):
@@ -207,7 +225,7 @@ class ConditionalNode(BlockTagNode):
         return struct
 
     def emit(self, context):
-        yield from self.ifnode.emit(context)
+        return self.ifnode.emit(context)
 
 
 class IfNode(BlockTagNode):
@@ -219,14 +237,15 @@ class IfNode(BlockTagNode):
     def _repr_rec(self):
         struct = super()._repr_rec()
         struct["else"] = self.elsenode._repr_rec() if self.elsenode else {}
+        struct["expression"] = self.expression
 
         return struct
 
     def emit(self, context):
         if self.evaluated_expression(context):
-            yield from super().emit(context)
+            return super().emit(context)
         elif self.elsenode:
-            yield from self.elsenode.emit(context)
+            return self.elsenode.emit(context)
 
 
 class ElseNode(BlockTagNode):
@@ -234,6 +253,12 @@ class ElseNode(BlockTagNode):
 
 
 class LoopNode(BlockTagNode):
+
+    def _repr_rec(self):
+        struct = super()._repr_rec()
+        struct["expression"] = self.expression
+
+        return struct
 
     def emit(self, context):
         resolved = self.evaluated_expression(context)
@@ -325,14 +350,14 @@ def parse_start_if_token(stack, token):
 
 
 def parse_start_elif_token(stack, token):
-    stack = rewind_stack_for(stack, search_for=(IfNode,))
+    stack = rewind_stack_for(stack, search_for=IfNode)
     stack.append(IfNode(token))
 
     return stack
 
 
 def parse_start_else_token(stack, token):
-    stack = rewind_stack_for(stack, search_for=(IfNode,))
+    stack = rewind_stack_for(stack, search_for=IfNode)
     stack.append(ElseNode(token))
 
     return stack
@@ -346,11 +371,11 @@ def parse_start_loop_token(stack, token):
 
 def parse_end_if_token(stack, token):
     stack = rewind_stack_for(stack, search_for=(IfNode, ElseNode))
-    stack = rewind_stack_for(stack, search_for=(ConditionalNode,))
+    stack = rewind_stack_for(stack, search_for=ConditionalNode)
 
     cond = stack.pop()
-    previous_node = cond.nodes[0]
-    for next_node in cond.nodes[1:]:
+    previous_node, *rest_nodes = cond.nodes
+    for next_node in rest_nodes:
         if isinstance(previous_node, ElseNode):
             raise ValueError(
                 "If statement {0} has multiple elses".format(
@@ -364,11 +389,12 @@ def parse_end_if_token(stack, token):
 
 
 def parse_end_loop_token(stack, token):
-    return rewind_stack_for(stack, search_for=(LoopNode,))
+    return rewind_stack_for(stack, search_for=LoopNode)
 
 
 def rewind_stack_for(stack, *, search_for):
     nodes = []
+    node = None
 
     while stack:
         node = stack.pop()
