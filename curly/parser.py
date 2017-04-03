@@ -92,7 +92,8 @@ class Node:
 
     def _repr_rec(self):
         return {
-            "token": self.token,
+            "string": self.token.raw_string if self.token else "",
+            "type": self.__class__.__name__,
             "done": self.done,
             "nodes": [node._repr_rec() for node in self.nodes]}
 
@@ -271,6 +272,7 @@ def parse(tokens):
 
     root = Node(None)
     root.nodes = stack
+    root.done = True
 
     return root
 

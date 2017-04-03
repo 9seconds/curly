@@ -14,7 +14,11 @@ def main():
     template = options.template.read()
 
     try:
-        print(curly.render(template, options.context), end="")
+        template = curly.Template(template)
+        if options.ast:
+            print(repr(template))
+        else:
+            print(template.render(options.context))
     except ValueError as exc:
         sys.exit(exc)
 
@@ -25,6 +29,12 @@ def get_options():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
 
+    parser.add_argument(
+        "-a", "--ast",
+        action="store_true",
+        default=False,
+        help="Print AST tree of template only."
+    )
     parser.add_argument(
         "context",
         default="{}",  # NOQA

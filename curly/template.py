@@ -29,6 +29,9 @@ class Template:
     def __init__(self, text):
         self.node = parser.parse(lexer.tokenize(text))
 
+    def __repr__(self):
+        return repr(self.node)
+
     def render(self, context):
         """Render template into according to the given context.
 
