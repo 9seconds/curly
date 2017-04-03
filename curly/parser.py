@@ -94,8 +94,6 @@ class Node(collections.UserList):
     :type token: :py:class:`curly.lexer.Token`
     """
 
-    __slots__ = "token", "nodes", "done"
-
     def __init__(self, token):
         super().__init__()
         self.token = token

@@ -82,8 +82,6 @@ class Token(collections.UserString):
         some reason.
     """
 
-    __slots__ = "contents", "raw_string"
-
     REGEXP = None
 
     def __init__(self, raw_string):

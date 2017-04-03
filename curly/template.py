@@ -24,8 +24,6 @@ class Template:
         AST tree.
     """
 
-    __slots__ = "node",
-
     def __init__(self, text):
         self.node = parser.parse(lexer.tokenize(text))
 
