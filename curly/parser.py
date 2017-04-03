@@ -52,6 +52,7 @@ contents={'expression': ['likes'], 'function': 'if'})>}])>
 """
 
 
+import collections
 import pprint
 import subprocess
 
@@ -76,7 +77,7 @@ class ExpressionMixin:
         return value
 
 
-class Node:
+class Node(collections.UserList):
     """Node of an AST tree.
 
     It has 2 methods for rendering of the node content:
@@ -96,23 +97,23 @@ class Node:
     __slots__ = "token", "nodes", "done"
 
     def __init__(self, token):
+        super().__init__()
         self.token = token
-        self.nodes = []
         self.done = False
 
     def __str__(self):
         return ("<{0.__class__.__name__}(done={0.done}, token={0.token!r}, "
-                "nodes={0.nodes!r})>").format(self)
+                "data={0.data!r})>").format(self)
 
     def __repr__(self):
         return pprint.pformat(self._repr_rec())
 
     def _repr_rec(self):
         return {
-            "raw_string": self.token.raw_string if self.token else "",
+            "raw_string": repr(self.token) if self.token else "",
             "type": self.__class__.__name__,
             "done": self.done,
-            "nodes": [node._repr_rec() for node in self.nodes]}
+            "nodes": [node._repr_rec() for node in self.data]}
 
     @property
     def raw_string(self):
@@ -144,8 +145,19 @@ class Node:
         :return: Generator with rendered texts.
         :rtype: Generator[str]
         """
-        for node in self.nodes:
+        for node in self:
             yield from node.emit(context)
+
+
+class RootNode(Node):
+
+    def __init__(self, nodes):
+        super().__init__(None)
+        self.data = nodes
+        self.done = True
+
+    def __repr__(self):
+        return pprint.pformat(self.data)
 
 
 class LiteralNode(Node):
@@ -295,11 +307,7 @@ def parse(tokens):
                 "Cannot find enclosement statement for {0.function}".format(
                     node))
 
-    root = Node(None)
-    root.nodes = stack
-    root.done = True
-
-    return root
+    return RootNode(stack)
 
 
 def parse_literal_token(stack, token):
@@ -374,16 +382,16 @@ def parse_end_if_token(stack, token):
     stack = rewind_stack_for(stack, search_for=ConditionalNode)
 
     cond = stack.pop()
-    previous_node, *rest_nodes = cond.nodes
+    previous_node, *rest_nodes = cond
     for next_node in rest_nodes:
         if isinstance(previous_node, ElseNode):
             raise ValueError(
                 "If statement {0} has multiple elses".format(
-                    cond.nodes[0].raw_string))
+                    cond[0].raw_string))
         previous_node.elsenode = next_node
         previous_node = next_node
 
-    stack.append(cond.nodes[0])
+    stack.append(cond[0])
 
     return stack
 
@@ -409,7 +417,7 @@ def rewind_stack_for(stack, *, search_for):
             "Expected to find loop start statement, got {0}".format(node))
 
     node.done = True
-    node.nodes = nodes[::-1]
+    node.data = nodes[::-1]
     stack.append(node)
 
     return stack

@@ -58,6 +58,7 @@ For details on lexing please check :py:func:`tokenize` function.
 """
 
 
+import collections
 import functools
 
 from curly import utils
@@ -70,7 +71,7 @@ REGEXP_EXPRESSION = r"(?:\\.|[^\{\}])+"
 """Regular expression for 'expression' definition."""
 
 
-class Token:
+class Token(collections.UserString):
     """Base class for every token to parse.
 
     Token is parsed by :py:func:`tokenize` only if it has defined REGEXP
@@ -92,8 +93,8 @@ class Token:
                 "String {0!r} is not valid for pattern {1!r}".format(
                     raw_string, self.REGEXP.pattern))
 
+        super().__init__(raw_string)
         self.contents = self.extract_contents(matcher)
-        self.raw_string = raw_string
 
     def extract_contents(self, matcher):
         """Extract more detail token information from regular expression.
@@ -104,12 +105,9 @@ class Token:
         """
         return {}
 
-    def __str__(self):
-        return ("<{0.__class__.__name__}(raw={0.raw_string!r}, "
-                "contents={0.contents!r})>").format(self)
-
     def __repr__(self):
-        return str(self)
+        return ("<{0.__class__.__name__}(raw={0.data!r}, "
+                "contents={0.contents!r})>").format(self)
 
 
 class PrintToken(Token):
@@ -189,7 +187,7 @@ class LiteralToken(Token):
     TEXT_UNESCAPE = utils.make_regexp(r"\\(.)")
 
     def __init__(self, text):
-        self.raw_string = text
+        self.data = text
         self.contents = {"text": self.TEXT_UNESCAPE.sub(r"\1", text)}
 
 
