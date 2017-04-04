@@ -73,8 +73,7 @@
                   href="http://mustache.github.io">Mustache</a>,
                   the templating is done with special construction
                   enclosed with curly braces. There are only 2 such
-                  constructions: <em>print</em> and <em>function
-                  call</em>.
+                  constructions: <em>print</em> and <em>block</em>.
                 </p>
                 <p>
                   <label for="expression-note" class="margin-toggle">&#8853;</label>
@@ -128,22 +127,27 @@
                   following template:
                 </p>
                 <pre class="code">{{ user.roles.team.1.read }}</pre>
-                <h3>Function calls</h3>
+                <h3>Block tags</h3>
                 <p>
-                  Function calls are loops, conditionals and
-                  everything which require some function. There are 3
-                  default functions are available:
+                  Blocks are everything what has some content it has
+                  to process. Loops are looping through the lists,
+                  conditional output is depended on context input.
                 </p>
-                <ol>
-                    <li><code>if</code></li>
-                    <li><code>if-not</code></li>
-                    <li><code>loop</code></li>
-                </ol>
                 <p>
                   For example, if you want to print a work place only
                   if available, do following:
-                <p>
+                </p>
                 <pre class="code">{{ name }}{% if work %} ({{ work.job_title }} at {{ work.company_name }}){% /if %}</pre>
+                <p>
+                  <code>elif</code>s and <code>else</code>s are also supported:
+                </p>
+                <pre class="code">{% if work %}
+    {{ work.job_title }}
+{% elif study %}
+    {{ university }}
+{% else %}
+    unemployed
+{% /if %}</pre>
                 <p>
                   <label for="loop-note" class="margin-toggle">&#8853;</label>
                   <input type="checkbox" id="loop-note" class="margin-toggle"/>
@@ -156,7 +160,8 @@
                   </span>
                   To loop over some variable:
                 </p>
-                <pre class="code">{% loop tags %}-{{ item }}
+                <pre class="code">{% loop tags %}
+    - {{ item }}
 {% /loop %}</pre>
             </section>
         </article>
