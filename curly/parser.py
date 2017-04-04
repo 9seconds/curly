@@ -635,7 +635,7 @@ ll-and-lr-in-context-why-parsing-tools.html
     :return: Parsed AST tree.
     :rtype: :py:class:`RootNode`
     :raises ValueError: if it is not possible to parse this stream
-        for some reason.
+        for some reason or token is unknown.
     """
     stack = []
 
@@ -658,18 +658,69 @@ ll-and-lr-in-context-why-parsing-tools.html
 
 
 def parse_literal_token(stack, token):
+    """This function does parsing of :py:class:`curly.lexer.LiteralToken`.
+
+    Since there is nothing to do with literals, it is just put
+    corresponding :py:class:`LiteralNode` on the top of the stack.
+
+    :param stack: Stack of the parser.
+    :param token: Token to process.
+    :type stack: list[:py:class:`Node`]
+    :type token: :py:class:`curly.lexer.LiteralToken`
+    :return: Updated stack.
+    :rtype: list[:py:class:`Node`]
+    """
     stack.append(LiteralNode(token))
 
     return stack
 
 
 def parse_print_token(stack, token):
+    """This function does parsing of :py:class:`curly.lexer.PrintToken`.
+
+    Since there is nothing to do with literals, it is just put
+    corresponding :py:class:`PrintNode` on the top of the stack.
+
+    :param stack: Stack of the parser.
+    :param token: Token to process.
+    :type stack: list[:py:class:`Node`]
+    :type token: :py:class:`curly.lexer.PrintToken`
+    :return: Updated stack.
+    :rtype: list[:py:class:`Node`]
+    """
     stack.append(PrintNode(token))
 
     return stack
 
 
 def parse_start_block_token(stack, token):
+    """This function does parsing of :py:class:`curly.lexer.StartBlockToken`.
+
+    Actually, since this token may have different behaviour, dependend
+    on *function* from that token.
+
+    .. list-table::
+      :header-rows: 1
+
+      * - Token function
+        - Parsing function
+      * - if
+        - :py:func:`parse_start_if_token`
+      * - elif
+        - :py:func:`parse_start_elif_token`
+      * - else
+        - :py:func:`parse_start_else_token`
+      * - loop
+        - :py:func:`parse_start_loop_token`
+
+    :param stack: Stack of the parser.
+    :param token: Token to process.
+    :type stack: list[:py:class:`Node`]
+    :type token: :py:class:`curly.lexer.StartBlockToken`
+    :return: Updated stack.
+    :rtype: list[:py:class:`Node`]
+    :raises ValueError: if token function is unknown.
+    """
     function = token.contents["function"]
 
     if function == "if":
@@ -685,6 +736,29 @@ def parse_start_block_token(stack, token):
 
 
 def parse_end_block_token(stack, token):
+    """This function does parsing of :py:class:`curly.lexer.EndBlockToken`.
+
+    Actually, since this token may have different behaviour, dependend
+    on *function* from that token.
+
+    .. list-table::
+      :header-rows: 1
+
+      * - Token function
+        - Parsing function
+      * - if
+        - :py:func:`parse_end_if_token`
+      * - loop
+        - :py:func:`parse_end_loop_token`
+
+    :param stack: Stack of the parser.
+    :param token: Token to process.
+    :type stack: list[:py:class:`Node`]
+    :type token: :py:class:`curly.lexer.EndBlockToken`
+    :return: Updated stack.
+    :rtype: list[:py:class:`Node`]
+    :raises ValueError: if token function is unknown.
+    """
     function = token.contents["function"]
 
     if function == "if":
