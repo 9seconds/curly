@@ -17,13 +17,21 @@ has no even primitive if/else constuctions (only ifs).
 
 Here is a full example of the supported language features:
 
-.. code-block:: jinja
+::
 
-  Hello {{ first_name }}{% if last_name %} {{ last_name }}{% /if %}!
+  Hello {{ first_name }},
+  {% if last_name %}
+    {{ last_name }}
+  {% elif title %}
+    {{ title }}
+  {% else %}
+    Doe
+  {% /if %}!
 
   Here is the list of stuff I like:
 
-  {% loop stuff %}  - {{ item.key }} (because of {{ item.value }})
+  {% loop stuff %}
+      - {{ item.key }} (because of {{ item.value }})
   {% /loop %}
 
   And that is all!
