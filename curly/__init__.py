@@ -43,12 +43,20 @@ def render(text, context):
       >>> result1 = template.render(context1)
       >>> result2 = template.render(context2)
 
-    :param text: Template text which you are going to render
+    :param text: Template text which you are going to render.
     :param dict context: A dictionary with a list of variables
-        for template
+        for template.
     :type text: str or bytes
-    :return: Rendered template
+    :return: Rendered template.
     :rtype: str
-    :raises ValueError: if template is impossible to render
+    :raises:
+        :py:exc:`curly.exceptions.CurlyEvaluateError`: if it is not
+        possible to evaluate expression within a context.
+
+        :py:exc:`curly.exceptions.CurlyLexerError`: if it is not
+        possible to perform lexing analysis of the template.
+
+        :py:exc:`curly.exceptions.CurlyParserError`: if it is not
+        possible to parse template.
     """
     return Template(text).render(context)

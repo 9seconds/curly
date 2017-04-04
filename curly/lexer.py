@@ -61,6 +61,7 @@ For details on lexing please check :py:func:`tokenize` function.
 import collections
 import functools
 
+from curly import exceptions
 from curly import utils
 
 
@@ -78,8 +79,9 @@ class Token(collections.UserString):
     attribute.
 
     :param str raw_string: Text which was recognized as a token.
-    :raises ValueError: if ``raw_string`` does not match for
-        some reason.
+    :raises:
+        :py:exc:`curly.exceptions.CurlyLexerStringDoesNotMatchError`: if
+        string does not match regular expression.
     """
 
     REGEXP = None
@@ -87,9 +89,8 @@ class Token(collections.UserString):
     def __init__(self, raw_string):
         matcher = self.REGEXP.match(raw_string)
         if matcher is None:
-            raise ValueError(
-                "String {0!r} is not valid for pattern {1!r}".format(
-                    raw_string, self.REGEXP.pattern))
+            raise exceptions.CurlyLexerStringDoesNotMatchError(
+                raw_string, self.REGEXP)
 
         super().__init__(raw_string)
         self.contents = self.extract_contents(matcher)

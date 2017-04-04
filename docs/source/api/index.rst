@@ -16,3 +16,4 @@ API reference
    parser
    template
    utils
+   exceptions

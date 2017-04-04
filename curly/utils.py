@@ -6,6 +6,8 @@ import re
 import shlex
 import textwrap
 
+from curly import exceptions
+
 
 def make_regexp(pattern):
     """Make regular expression from the given patterns.
@@ -108,18 +110,18 @@ def resolve_variable(varname, context):
     :param str varname: Expression to resolve
     :param dict context: A dictionary with variables to resolve.
     :return: Resolved value
-    :raises ValueError: if it is not possible to resolve ``varname``
-        within a ``context``.
+    :raises:
+        :py:exc:`curly.exceptions.CurlyEvaluateNoKeyError`: if it is
+        not possible to resolve ``varname`` within a ``context``.
     """
     try:
         return get_item_or_attr(varname, context)
-    except ValueError:
+    except exceptions.CurlyEvaluateError:
         pass
 
     chunks = varname.split(".", 1)
     if len(chunks) == 1:
-        raise ValueError("Context {0!r} has no key {1!r}".format(
-            context, varname))
+        raise exceptions.CurlyEvaluateNoKeyError(context, varname)
 
     current_name, rest_name = chunks
     new_context = resolve_variable(current_name, context)
@@ -137,8 +139,9 @@ def get_item_or_attr(varname, context):
     :param str varname: Expression to resolve
     :param dict context: A dictionary with variables to resolve.
     :return: Resolved value
-    :raises ValueError: if it is not possible to resolve ``varname``
-        within a ``context``.
+    :raises:
+        :py:exc:`curly.exceptions.CurlyEvaluateNoKeyError`: if it is
+        not possible to resolve ``varname`` within a ``context``.
     """
     try:
         return context[varname]
@@ -150,5 +153,5 @@ def get_item_or_attr(varname, context):
 
     if isinstance(varname, str) and varname.isdigit():
         return get_item_or_attr(int(varname), context)
-    raise ValueError("Cannot extract {0!r} from {1!r}".format(
-        varname, context))
+
+    raise exceptions.CurlyEvaluateNoKeyError(context, varname)

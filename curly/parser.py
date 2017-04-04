@@ -79,6 +79,7 @@ import collections
 import pprint
 import subprocess
 
+from curly import exceptions
 from curly import lexer
 from curly import utils
 
@@ -634,8 +635,8 @@ ll-and-lr-in-context-why-parsing-tools.html
     :type token: Iterator[:py:class:`curly.lexer.Token`]
     :return: Parsed AST tree.
     :rtype: :py:class:`RootNode`
-    :raises ValueError: if it is not possible to parse this stream
-        for some reason or token is unknown.
+    :raises:
+        :py:exc:`curly.exceptions.CurlyParserError`: if token is unknown.
     """
     stack = []
 
@@ -649,7 +650,7 @@ ll-and-lr-in-context-why-parsing-tools.html
         elif isinstance(token, lexer.EndBlockToken):
             stack = parse_end_block_token(stack, token)
         else:
-            raise ValueError("Unknown token {0}".format(token))
+            raise exceptions.CurlyParserUnknownTokenError(token)
 
     root = RootNode(stack)
     validate_for_all_nodes_done(root)
@@ -719,7 +720,9 @@ def parse_start_block_token(stack, token):
     :type token: :py:class:`curly.lexer.StartBlockToken`
     :return: Updated stack.
     :rtype: list[:py:class:`Node`]
-    :raises ValueError: if token function is unknown.
+    :raises:
+        :py:exc:`curly.exceptions.CurlyParserUnknownStartBlockError`: if
+        token function is unknown.
     """
     function = token.contents["function"]
 
@@ -732,7 +735,7 @@ def parse_start_block_token(stack, token):
     elif function == "loop":
         return parse_start_loop_token(stack, token)
     else:
-        raise ValueError("Unknown block tag {0}".format(token))
+        raise exceptions.CurlyParserUnknownStartBlockError(token)
 
 
 def parse_end_block_token(stack, token):
@@ -757,7 +760,9 @@ def parse_end_block_token(stack, token):
     :type token: :py:class:`curly.lexer.EndBlockToken`
     :return: Updated stack.
     :rtype: list[:py:class:`Node`]
-    :raises ValueError: if token function is unknown.
+    :raises:
+        :py:exc:`curly.exceptions.CurlyParserUnknownEndBlockError`: if
+        function of end block is unknown.
     """
     function = token.contents["function"]
 
@@ -766,7 +771,7 @@ def parse_end_block_token(stack, token):
     elif function == "loop":
         return parse_end_loop_token(stack, token)
     else:
-        raise ValueError("Unknown end block tag {0}".format(token))
+        raise exceptions.CurlyParserUnknownEndBlockError(token)
 
 
 def parse_start_if_token(stack, token):
