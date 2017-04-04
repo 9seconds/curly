@@ -61,3 +61,26 @@ class CurlyParserUnknownEndBlockError(CurlyParserError):
     def __init__(self, token):
         super().__init__("Unknown block tag {0} for token {1!s}",
                          token.contents["function"], token)
+
+
+class CurlyParserFoundNotDoneError(CurlyParserError):
+    """Exception raised if some node is not done."""
+
+    def __init__(self, node):
+        super().__init__("Cannot find enclosement statement for {0!s}",
+                         node.token)
+
+
+class CurlyParserNoUnfinishedNodeError(CurlyParserError):
+    """Exception raised if searching for not finished node is failed."""
+
+    def __init__(self):
+        super().__init__("Cannot find not finished node.")
+
+
+class CurlyParserUnexpectedUnfinishedNodeError(CurlyParserError):
+    """Exception raised if we found unfinished node which is not expected."""
+
+    def __init__(self, search_for, node):
+        super().__init__("Excepted to find {0} node but found {1!s} instead",
+                         search_for, node)

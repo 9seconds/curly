@@ -901,6 +901,30 @@ def parse_end_loop_token(stack, token):
 
 
 def rewind_stack_for(stack, *, search_for):
+    """Stack rewinding till some node found.
+
+    This function performes stack reducing on parsing. Idea is quite
+    simple: we pop out nodes until some not done is found. If it has a
+    type of node we are looking for, we are good: it basically means
+    that we've found the node which should have popped results as
+    subnodes. Otherwise: exception.
+
+    At the end of the procedure updated node is placed on the top of the
+    stack.
+
+    :param stack: Stack of the parser.
+    :param search_for: Type of the node we are searching for.
+    :type stack: list[:py:class:`Node`]
+    :type search_for: :py:class:`Node`
+    :return: Updated stack.
+    :rtype: list[:py:class:`Node`]
+    :raises:
+        :py:exc:`curly.exceptions.CurlyParserNoUnfinishedNodeError`: if
+        not possible to find open start statement.
+
+        :py:exc:`curly.exceptions.CurlyParserUnexpectedUnfinishedNodeError`: if
+        we expected to find one open statement but found another.
+    """
     nodes = []
     node = None
 
@@ -910,12 +934,11 @@ def rewind_stack_for(stack, *, search_for):
             break
         nodes.append(node)
     else:
-        raise ValueError("Cannot find matching start statement")
+        raise exceptions.CurlyParserNoUnfinishedNodeError()
 
     if not isinstance(node, search_for):
-        raise ValueError(
-            "Expected to find {0} start statement, got {1}".format(
-                search_for, node))
+        raise exceptions.CurlyParserUnexpectedUnfinishedNodeError(
+            search_for, node)
 
     node.done = True
     node.data = nodes[::-1]
@@ -925,11 +948,18 @@ def rewind_stack_for(stack, *, search_for):
 
 
 def validate_for_all_nodes_done(root):
+    """Validates that all nodes in given AST trees are marked as done.
+
+    It simply does in-order traversing of the tree, verifying attribute.
+
+    :param root: Root of the tree.
+    :type root: :py:class:`RootNode`
+    :raises:
+        :py:exc:`curly.exceptions.CurlyParserFoundNotDoneError`: if
+        node which is not closed is found.
+    """
     for node in root:
         if not node.done:
-            raise ValueError(
-                "Cannot find enclosement statement for {0}".format(
-                    str(node.token)))
-
+            raise exceptions.CurlyParserFoundNotDoneError(node)
         for subnode in root:
             validate_for_all_nodes_done(subnode)
