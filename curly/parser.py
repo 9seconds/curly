@@ -433,6 +433,203 @@ ll-and-lr-in-context-why-parsing-tools.html
        stack are done (``done`` attribute) and build resulting
        :py:class:`RootNode` instance.
 
+    The main idea is to maintain stack. Stack is a list of the
+    children for the root node. We read a token by token and put
+    corresponding nodes into stack. Each node has 2 states: done or
+    not done. Done means that node is ready and processed, not
+    done means that further squashing will be performed when
+    corresponding terminating token will come to the parser.
+
+    So, let's assume that we have a following list of tokens (stack on
+    the left, incoming tokens on the right. Top of the token stream is
+    the same one which is going to be consumed).
+
+    Some notation: exclamation mark before a node means that node is
+    finished; it means that it is ready to participate into rendering,
+    finalized.
+
+    ::
+
+      |                     |        |    LiteralToken             |
+      |                     |        |    StackBlockToken(if)      |
+      |                     |        |    PrintToken               |
+      |                     |        |    StartBlockToken(elif)    |
+      |                     |        |    StartBlockToken(loop)    |
+      |                     |        |    PrintToken               |
+      |                     |        |    EndBlockToken(loop)      |
+      |                     |        |    EndBlockToken(if)        |
+
+    Read ``LiteralToken``. It is fine as is, so wrap it into
+    :py:class:`LiteralNode` and put it into stack.
+
+    ::
+
+      |                     |        |                             |
+      |                     |        |    StackBlockToken(if)      |
+      |                     |        |    PrintToken               |
+      |                     |        |    StartBlockToken(elif)    |
+      |                     |        |    StartBlockToken(loop)    |
+      |                     |        |    PrintToken               |
+      |                     |        |    EndBlockToken(loop)      |
+      |    !LiteralNode     |        |    EndBlockToken(if)        |
+
+    And now it is a time for :py:class:`curly.lexer.StartBlockToken`.
+    A kind remember, this is a start tag of ``{% function expression
+    %}...{% /function %}`` construction. The story about such tag is
+    that it has another tokens it encloses. So other tokens has to
+    be subnodes of related node. This would be done of reduce phase
+    described in a few paragraphs below but right now pay attention to
+    ``done`` attribute of the node: if it is ``False`` it means that we
+    still try to collect all contents of this block subnodes. ``True``
+    means that node is finished.
+
+    Function of this token is ``if`` so we need to add
+    :py:class:`ConditionalNode` as a marker of the closure and the first
+    :py:class:`IfNode` in this enclosement.
+
+    ::
+
+      |                         |        |                             |
+      |                         |        |                             |
+      |                         |        |    PrintToken               |
+      |                         |        |    StartBlockToken(elif)    |
+      |                         |        |    StartBlockToken(loop)    |
+      |     IfNode              |        |    PrintToken               |
+      |     ConditionalNode     |        |    EndBlockToken(loop)      |
+      |    !LiteralNode         |        |    EndBlockToken(if)        |
+
+    The upcoming :py:class:`curly.lexer.PrintToken` is a single
+    functional node: to emit rendered template, we need to resolve
+    its *expression* in given context. This is one finished node
+    :py:class:`PrintNode`.
+
+    ::
+
+      |                         |        |                             |
+      |                         |        |                             |
+      |                         |        |                             |
+      |                         |        |    StartBlockToken(elif)    |
+      |    !PrintNode           |        |    StartBlockToken(loop)    |
+      |     IfNode              |        |    PrintToken               |
+      |     ConditionalNode     |        |    EndBlockToken(loop)      |
+      |    !LiteralNode         |        |    EndBlockToken(if)        |
+
+    Now it is a time for next :py:class:`curly.lexer.StartBlockToken`
+    which is responsible for ``{% elif %}``. It means, that
+    scope of first, initial ``if`` is completed, but not for
+    corresponding :py:class:`ConditionalNode`! Anyway, we can
+    safely add :py:class:`PrintNode` from the top of the stack to
+    nodelist of :py:class:`IfNode`. To do so, we pop stack till that
+    :py:class:`IfNode` and add popped content to the nodelist. After
+    that, we can finally mark :py:class:`IfNode` as done.
+
+    ::
+
+      |                         |        |                             |
+      |                         |        |                             |
+      |                         |        |                             |
+      |                         |        |    StartBlockToken(elif)    |
+      |                         |        |    StartBlockToken(loop)    |
+      |    !IfNode(!PrintNode)  |        |    PrintToken               |
+      |     ConditionalNode     |        |    EndBlockToken(loop)      |
+      |    !LiteralNode         |        |    EndBlockToken(if)        |
+
+    Stack was rewinded and we can add new :py:class:`IfNode` to
+    condition.
+
+    ::
+
+      |                         |        |                             |
+      |                         |        |                             |
+      |                         |        |                             |
+      |                         |        |                             |
+      |     IfNode              |        |    StartBlockToken(loop)    |
+      |    !IfNode(!PrintNode)  |        |    PrintToken               |
+      |     ConditionalNode     |        |    EndBlockToken(loop)      |
+      |    !LiteralNode         |        |    EndBlockToken(if)        |
+
+    Next token is a loop (``{% loop items %}``). The same story as with
+    :py:class:`IfNode`: emit :py:class:`LoopNode` to the top of the
+    stack.
+
+    ::
+
+      |                         |        |                             |
+      |                         |        |                             |
+      |                         |        |                             |
+      |     LoopNode            |        |                             |
+      |     IfNode              |        |                             |
+      |    !IfNode(!PrintNode)  |        |    PrintToken               |
+      |     ConditionalNode     |        |    EndBlockToken(loop)      |
+      |    !LiteralNode         |        |    EndBlockToken(if)        |
+
+    Add :py:class:`curly.lexer.PrintToken` as a :py:class:`PrintNode`.
+
+    ::
+
+      |                         |        |                             |
+      |                         |        |                             |
+      |     PrintToken          |        |                             |
+      |     LoopNode            |        |                             |
+      |     IfNode              |        |                             |
+      |    !IfNode(!PrintNode)  |        |                             |
+      |     ConditionalNode     |        |    EndBlockToken(loop)      |
+      |    !LiteralNode         |        |    EndBlockToken(if)        |
+
+    Next token is :py:class:`curly.lexer.EndBlockToken` for the loop
+    ( ``{% /loop %}``). So we can rewind the stack to the loop node,
+    putting all popped nodes as a nodelist for :py:class:`LoopNode`.
+
+    ::
+
+      |                           |        |                             |
+      |                           |        |                             |
+      |                           |        |                             |
+      |    !LoopNode(!PrintNode)  |        |                             |
+      |     IfNode                |        |                             |
+      |    !IfNode(!PrintNode)    |        |                             |
+      |     ConditionalNode       |        |                             |
+      |    !LiteralNode           |        |    EndBlockToken(if)        |
+
+    And it is a time for :py:class:`curly.lexer.EndBlockToken` for
+    ``if`` (``{% /if %}``). Now we need to rewind stack twice. First
+    rewind is to complete :py:class:`IfNode` which is almost on the top
+    of the stack.
+
+    ::
+
+      |                             |        |                             |
+      |                             |        |                             |
+      |                             |        |                             |
+      |    !LoopNode(!PrintNode)    |        |                             |
+      |    !IfNode(!LoopNode(...))  |        |                             |
+      |    !IfNode(!PrintNode)      |        |                             |
+      |     ConditionalNode         |        |                             |
+      |    !LiteralNode             |        |    EndBlockToken(if)        |
+
+    And the second rewind is to finish nearest
+    :py:class:`ConditionalNode`.
+
+    ::
+
+      |                                       |        |                     |
+      |                                       |        |                     |
+      |                                       |        |                     |
+      |                                       |        |                     |
+      |                                       |        |                     |
+      |                                       |        |                     |
+      |    !ConditionalNode(!IfNode,!IfNode)  |        |                     |
+      |    !LiteralNode                       |        |                     |
+
+    And that is all. Token list is empty, so it is a time to compose
+    relevant :py:class:`RootNode` with the contents of the stack.
+
+    ::
+
+      !RootNode(!LiteralNode, !ConditionalNode(!IfNode, !IfNode))
+
+    We've just made AST tree.
+
     :param token: A stream with tokens.
     :type token: Iterator[:py:class:`curly.lexer.Token`]
     :return: Parsed AST tree.
@@ -454,12 +651,10 @@ ll-and-lr-in-context-why-parsing-tools.html
         else:
             raise ValueError("Unknown token {0}".format(token))
 
-    for node in stack:
-        if not node.done:
-            raise ValueError(
-                "Cannot find enclosement statement for {0}".format(node))
+    root = RootNode(stack)
+    validate_for_all_nodes_done(root)
 
-    return RootNode(stack)
+    return root
 
 
 def parse_literal_token(stack, token):
@@ -572,3 +767,14 @@ def rewind_stack_for(stack, *, search_for):
     stack.append(node)
 
     return stack
+
+
+def validate_for_all_nodes_done(root):
+    for node in root:
+        if not node.done:
+            raise ValueError(
+                "Cannot find enclosement statement for {0}".format(
+                    str(node.token)))
+
+        for subnode in root:
+            validate_for_all_nodes_done(subnode)
