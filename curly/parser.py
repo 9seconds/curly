@@ -775,6 +775,19 @@ def parse_end_block_token(stack, token):
 
 
 def parse_start_if_token(stack, token):
+    """Parsing of token for ``{% if function expression %}``.
+
+    It puts 2 nodes on the stack: :py:class:`ConditionalNode` and
+    :py:class:`IfNode`. Checks docs for :py:func:`parse` to understand
+    why.
+
+    :param stack: Stack of the parser.
+    :param token: Token to process.
+    :type stack: list[:py:class:`Node`]
+    :type token: :py:class:`curly.lexer.StartBlockToken`
+    :return: Updated stack.
+    :rtype: list[:py:class:`Node`]
+    """
     stack.append(ConditionalNode(token))
     stack.append(IfNode(token))
 
@@ -782,6 +795,19 @@ def parse_start_if_token(stack, token):
 
 
 def parse_start_elif_token(stack, token):
+    """Parsing of token for ``{% elif function expression %}``.
+
+    It rewinds stack with :py:func:`rewind_stack_for` till previous
+    :py:class:`IfNode` first and appends new one. Checks docs for
+    :py:func:`parse` to understand why.
+
+    :param stack: Stack of the parser.
+    :param token: Token to process.
+    :type stack: list[:py:class:`Node`]
+    :type token: :py:class:`curly.lexer.StartBlockToken`
+    :return: Updated stack.
+    :rtype: list[:py:class:`Node`]
+    """
     stack = rewind_stack_for(stack, search_for=IfNode)
     stack.append(IfNode(token))
 
@@ -789,19 +815,40 @@ def parse_start_elif_token(stack, token):
 
 
 def parse_start_else_token(stack, token):
+    """Parsing of token for ``{% else %}``.
+
+    It rewinds stack with :py:func:`rewind_stack_for` till previous
+    :py:class:`IfNode` first and appends new :py:class:`ElseNode`.
+    Checks docs for :py:func:`parse` to understand why.
+
+    :param stack: Stack of the parser.
+    :param token: Token to process.
+    :type stack: list[:py:class:`Node`]
+    :type token: :py:class:`curly.lexer.StartBlockToken`
+    :return: Updated stack.
+    :rtype: list[:py:class:`Node`]
+    """
     stack = rewind_stack_for(stack, search_for=IfNode)
     stack.append(ElseNode(token))
 
     return stack
 
 
-def parse_start_loop_token(stack, token):
-    stack.append(LoopNode(token))
-
-    return stack
-
-
 def parse_end_if_token(stack, token):
+    """Parsing of token for ``{% /if %}``.
+
+    Check :py:func:`parse` for details. Also, it pops out redundant
+    :py:class:`ConditionalNode` and make chaining of :py:class:`IfNode`
+    and :py:class:`ElseNode` verifying that there is only one possible
+    else and it placed at the end.
+
+    :param stack: Stack of the parser.
+    :param token: Token to process.
+    :type stack: list[:py:class:`Node`]
+    :type token: :py:class:`curly.lexer.EndBlockToken`
+    :return: Updated stack.
+    :rtype: list[:py:class:`Node`]
+    """
     stack = rewind_stack_for(stack, search_for=(IfNode, ElseNode))
     stack = rewind_stack_for(stack, search_for=ConditionalNode)
 
@@ -820,7 +867,36 @@ def parse_end_if_token(stack, token):
     return stack
 
 
+def parse_start_loop_token(stack, token):
+    """Parsing of token for ``{% loop iterable %}``.
+
+    Check :py:func:`parse` for details.
+
+    :param stack: Stack of the parser.
+    :param token: Token to process.
+    :type stack: list[:py:class:`Node`]
+    :type token: :py:class:`curly.lexer.StartBlockToken`
+    :return: Updated stack.
+    :rtype: list[:py:class:`Node`]
+    """
+    stack.append(LoopNode(token))
+
+    return stack
+
+
 def parse_end_loop_token(stack, token):
+    """Parsing of token for ``{% /loop %}``.
+
+    Check :py:func:`parse` for details. Stack rewinding is performed
+    with :py:func:`rewind_stack_for`.
+
+    :param stack: Stack of the parser.
+    :param token: Token to process.
+    :type stack: list[:py:class:`Node`]
+    :type token: :py:class:`curly.lexer.EndBlockToken`
+    :return: Updated stack.
+    :rtype: list[:py:class:`Node`]
+    """
     return rewind_stack_for(stack, search_for=LoopNode)
 
 
