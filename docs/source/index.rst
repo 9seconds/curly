@@ -41,7 +41,7 @@ Here is a full example of the supported language features:
    :maxdepth: 2
    :caption: Contents:
 
-   design
+   implementation
    api/index
 
 
