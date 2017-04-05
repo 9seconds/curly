@@ -1,5 +1,5 @@
-.. _design:
-.. _designing_the_language:
+.. _implementation:
+.. _implementation_the_language:
 
 Implementation of the Language
 ==============================
@@ -55,6 +55,8 @@ interpreters were delivered by UFOs or found in Maya tombs. How would
 you implement such template language?
 
 
+.. _implementation_text_interpretation:
+
 Text Interpretation
 +++++++++++++++++++
 
@@ -75,6 +77,8 @@ This implementation proposes 3 layers:
 #. Parsing
 #. Evaluation
 
+
+.. _implementation_lexing:
 
 Lexing
 ++++++
@@ -165,5 +169,76 @@ After that procedure, we will get following stream of tokens:
   Start is on the top of the stack, finish - at the bottom.
 
 
+.. _implementation_parsing:
+
 Parsing
 +++++++
+
+After we've got token stream from `Lexing`_, it is a time to
+do parsing. The main idea of the parsing is to get `AST tree
+<https://en.wikipedia.org/wiki/Abstract_syntax_tree>`_ from the token
+stream. So, convert a list into the tree.
+
+To do that, we are going to use stack. From the left side is the stack
+of the parsed, from the right - incoming token stream. This token stream
+is present as stack also (elements are taken from the top) just to fit
+it on the screen. Also, some tokens were reduced but hopefully, it won't
+hide the picture.
+
+.. image:: /images/dtl-initial-stack.png
+
+The main idea of parsing is simple: we are taking token from the incoming
+stream, look on it and decide what to do with stack. For example,
+we can rewrite a part of the stack. Or add new node on the top.
+
+Right now we want to take first token from the stream. This is a literal
+token ``Hello``. This literal does not require any additional configuration
+or processing therefore we can add literal node to the stack.
+
+.. image:: /images/dtl-stack1.png
+
+.. note::
+
+  Please pay attention to black start mark. All nodes in parser stack
+  are marked as done and not done. Black star means that node is
+  done. Done means that no additional actions on that node should be
+  performed, it is ready for AST tree as is.
+
+The next token is print ``{{ first_name }}``. Again, corresponding node
+is self sufficient: no children, responsible only for context later.
+
+.. image:: /images/dtl-stack2.png
+
+Next node is literal. The same story again.
+
+.. image:: /images/dtl-stack3.png
+
+Next node is start block tag for conditional. And here is party begins.
+Conditionals are complicated and their blocks have contents. Content is
+rendered if expression is evaluated to ``true``. So we cannot add this
+node as done: the contents are upcoming and moreover, we cannot even
+suggest how will this condition looks like: will it be a single if? Or a
+number of if and elifs?
+
+And what is elif? The most simple thing we can imagine is to present
+a single conditional block with a list of if and else statements. For
+example, we might have following syntax
+
+::
+
+    {% conditional %}
+      {% if last_name %}
+        {{ last_name }}
+      {% /if %}
+      {% if title %}
+        {{ title }}
+      {% /if %}
+      {% else %}
+        Doe
+      {% /else %}
+    {% /conditional %}
+
+Let's assume that we've got such syntax implicitly. For that we need to
+add one conditional block (purple color) and out if block after on the
+top of the stack. Of course, they would be unfinished, without black
+star.
