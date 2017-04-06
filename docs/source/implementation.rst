@@ -328,8 +328,8 @@ Please welcome, AST tree of out template.
 Evaluation
 ++++++++++
 
-To evaluate the tree, we have to make `in-order tree traversal
-<https://en.wikipedia.org/wiki/Tree_traversal#In-order>`_. Each node
+To evaluate the tree, we have to make `pre-order tree traversal
+<https://en.wikipedia.org/wiki/Tree_traversal#Pre-order>`_. Each node
 should emit some text. If node has subnodes, then text it emits depends
 on evaluation of these subnodes. If you think about recursion here, yes,
 there is recursion.
