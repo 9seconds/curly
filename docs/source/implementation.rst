@@ -177,7 +177,9 @@ Parsing
 After we've got token stream from `Lexing`_, it is a time to
 do parsing. The main idea of the parsing is to get `AST tree
 <https://en.wikipedia.org/wiki/Abstract_syntax_tree>`_ from the token
-stream. So, convert a list into the tree.
+stream. So, convert a list into the tree. Yes, before the AST tree we
+can have a `parse tree <https://en.wikipedia.org/wiki/Parse_tree>`_ but
+in our case it is almost indistinguishable from AST one.
 
 To do that, we are going to use stack. From the left side is the stack
 of the parsed, from the right - incoming token stream. This token stream
@@ -244,3 +246,78 @@ top of the stack. Of course, they would be unfinished, without black
 star.
 
 .. image:: /images/dtl-stack4.png
+
+.. important::
+
+  Please pay attention that conditional and first if have no black star
+  marks. This is not a misprint (mispicture?): seriously, block tags
+  have a content so we are not finished with them yet, they are not
+  ready to be rendered.
+
+The next 3 nodes are breeze: literal, print and literal. They are ready
+to be put on the stack and no additional processing for any is required.
+
+.. image:: /images/dtl-stack5.png
+
+And now interesting: next node is ``{% elif title %}``. What does it
+mean for us? It actualy means, that scope of ``{% if last_name %}`` has
+been completed, finished, closed. Nothing to do there, no tokens will
+be appended. Now it is a time of *reduce* phase.
+
+Reduce phase means that we are popping tokens out of stack until first
+unfinished is found. And this first unfinished we meet is our token
+which has to be completed. If we've made no mistake in implementation,
+this would be the truth. Otherwise, we have a syntax error (e.g ``{%
+if something %}{% /loop %}``). So, we are going to pop last 3 tokens
+and connect them as a subnodes of first unfinished tag we meet, ``{% if
+last_name %}``
+
+.. image:: /images/dtl-stack6.png
+
+Reduce phase is over. Now we can add new ``if`` to the stack. This will
+be the ``{% elif title %}`` which would be yet another ``if`` node: ``{%
+if title %}``.
+
+.. image:: /images/dtl-stack7.png
+
+Applying the same logic till ``{% /if %}`` we are getting following state:
+
+.. image:: /images/dtl-stack8.png
+
+Okay, ``{% /if %}`` basically means that conditional is closed. All ifs,
+elifs and elses have to be closed. This requires 2 stack rewinds.
+
+First stack rewind is going to finish ``{% else %}`` node.
+
+.. image:: /images/dtl-stack9.png
+
+And the second rewind has to close ``conditional``. Why? Because ``{%
+/if %}`` closes whole condition.
+
+.. image:: /images/dtl-stack10.png
+
+The funny thing is: we do not need ``conditional`` anymore. We can do
+yet another reduce phase, popping it out, making a linked list from its
+contents and popping first if statement (the head of the linked list to
+the top of the stack).
+
+.. image:: /images/dtl-stack11.png
+
+Put yet another literal token as a literl node on the top of the stack.
+
+.. image:: /images/dtl-stack12.png
+
+The next one is loop. Loop is similar to conditional but it does not
+have any substuff like elif or else. Therefore we can just pop it as
+unfinished on the top of the stack, fill it with contents and reduce on
+``{% /loop %}``.
+
+.. image:: /images/dtl-stack13.png
+
+Token stream is exhausted, we need to do the last step: take all
+contents of stack and add it as subnodes to root node. Let's make another picture
+in more familiar way:
+
+.. image:: /images/dtl-stack14.png
+
+Please welcome, AST tree of out template.
