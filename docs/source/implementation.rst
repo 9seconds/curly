@@ -242,3 +242,5 @@ Let's assume that we've got such syntax implicitly. For that we need to
 add one conditional block (purple color) and out if block after on the
 top of the stack. Of course, they would be unfinished, without black
 star.
+
+.. image:: /images/dtl-stack4.png
