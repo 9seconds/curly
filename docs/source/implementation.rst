@@ -321,3 +321,78 @@ in more familiar way:
 .. image:: /images/dtl-stack14.png
 
 Please welcome, AST tree of out template.
+
+
+.. _implementation_evaluation:
+
+Evaluation
+++++++++++
+
+To evaluate the tree, we have to make `in-order tree traversal
+<https://en.wikipedia.org/wiki/Tree_traversal#In-order>`_. Each node
+should emit some text. If node has subnodes, then text it emits depends
+on evaluation of these subnodes. If you think about recursion here, yes,
+there is recursion.
+
+Let's explain evaluation with example. Consider template from the top
+of the page. We want to render following context:
+
+.. code-block:: json
+
+  {
+    "first_name": "Sergey",
+    "last_name": "",
+    "title": "Mr",
+    "stuff": {
+      "coffee": "taste",
+      "programming": "nerd heaven",
+      "music": "music"
+    }
+  }
+
+Let's traverse our tree step by step. First, root node. It has no its
+own content, text it emits is simply concatenation of texts from its
+subnodes.
+
+Evaluate "Hello, ": ``Hello,``
+
+Evaluate ``{{ first_name }}``: ``Sergey``
+
+``Hello,`` + ``Sergey`` = ``Hello, Sergey``.
+
+If evaluation is slightly different. Please be noticed that there is a
+list of else nodes: nodes which should be evaluated if expression of the
+node is not ok. Evaluate ``{% if last_name%}`` === ``if ""``. Actually,
+this is false. Empty string is falsy. So we need a level deeper by
+elsenode reference, Eto ``{% if title %}``. This evaluates to ``True``
+(``{% if "Mr" %}``). So we need to render subnodes. This evaluation is
+``" " + "Mr" + "" == " Mr"``. So, rendered content of if node is " Mr".
+
+So, at this point, we have ``Hello, Sergey`` + " Mr" == ``Hello, Sergey
+Mr``.
+
+Loop just going through the iterable, injecting ``item`` into the
+context. Results of iterations are concatenated. So, it is ``- coffee
+(because of - programing (because of - music (because of``.
+
+And the resulting rendered template of the text on the top would be:
+
+::
+
+  Hello Sergey,
+    Mr
+
+
+  Here is the list of stuff I like:
+
+    - coffee (because of taste)
+
+    - programming (because of nerd heaven)
+
+    - music (because of music)
+
+
+
+  And that is all!
+
+And that is all!
