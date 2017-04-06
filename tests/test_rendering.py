@@ -30,6 +30,28 @@ def test_if_tag():
     assert render(tpl, {"qq": False, "pp": True}) == "Hello  PP Hello"
 
 
+def test_elif_tag():
+    tpl = "Hello {% if qq %}1{%elif pp%}2{%else%}3{%/if%}"
+    assert render(tpl, {"qq": False, "pp": True}) == "Hello 2"
+
+
+def test_else_tag():
+    tpl = "Hello {% if qq %}1{%elif pp%}2{%else%}3{%/if%}"
+    assert render(tpl, {"qq": False, "pp": False}) == "Hello 3"
+
+
+def test_double_else_tag():
+    tpl = "Hello {% if qq %}1{%else%}3{%elif pp%}2{%else%}3{%/if%}"
+    with pytest.raises(ValueError):
+        render(tpl, {"qq": False, "pp": False})
+
+
+def test_double_else_end_tag():
+    tpl = "Hello {% if qq %}13{%elif pp%}2{%else%}3{%else%}4{%/if%}"
+    with pytest.raises(ValueError):
+        render(tpl, {"qq": False, "pp": False})
+
+
 def test_for_loop_list():
     tpl = "H {% loop items %}={{ item }}{% /loop %} H"
     assert render(tpl, {"items": [1, 2, 3]}) == "H =1=2=3 H"
@@ -47,14 +69,14 @@ def test_for_loop_if():
         "H =True==1= H"
 
 
-@pytest.mark.parametrize("tagname", ["loop", "if", "if-not"])
+@pytest.mark.parametrize("tagname", ["loop", "if", "elif", "else"])
 def test_cannot_find_end_statement(tagname):
     tpl = "H {%% %s condition %%}" % tagname
     with pytest.raises(ValueError):
         render(tpl, {"var": 1})
 
 
-@pytest.mark.parametrize("tagname", ["loop", "if", "if-not"])
+@pytest.mark.parametrize("tagname", ["loop", "if", "elif", "else"])
 def test_cannot_find_start_statement(tagname):
     tpl = "H {%% /%s %%} H" % tagname
     with pytest.raises(ValueError):
@@ -62,7 +84,8 @@ def test_cannot_find_start_statement(tagname):
 
 
 @pytest.mark.parametrize(
-    "one, another", list(itertools.permutations(["loop", "if", "if-not"], 2)))
+    "one, another", list(itertools.permutations(
+        ["loop", "if", "elif", "else"], 2)))
 def test_mixed_statements(one, another):
     tpl = "H {%% %s %%} {%% / %s %%}" % (one, another)
     with pytest.raises(ValueError):
