@@ -68,7 +68,7 @@ from curly import utils
 REGEXP_FUNCTION = r"[a-zA-Z0-9_-]+"
 """Regular expression for function definition."""
 
-REGEXP_EXPRESSION = r"(?:\\.|[^\{\}])+"
+REGEXP_EXPRESSION = r"(?:\\.|[^\{\}%])+"
 """Regular expression for 'expression' definition."""
 
 
